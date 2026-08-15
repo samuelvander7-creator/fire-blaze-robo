@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="FIRE BLAZE",
+    page_title="🔥 FIRE BLAZE",
     page_icon="🎰",
     layout="centered"
 )
@@ -27,44 +27,86 @@ roleta = [
 
 if st.button("🎯 ANALISAR", use_container_width=True):
 
-    if ultimo in roleta:
-        posicao = roleta.index(ultimo)
+    posicao = roleta.index(ultimo)
 
-        # 22 números ao redor do último resultado
-        candidatos = []
+    # ==================================================
+    # 1️⃣ POSSIBILIDADE — 22 números ao redor
+    # ==================================================
 
-        for i in range(-11, 12):
-            numero = roleta[(posicao + i) % len(roleta)]
+    possibilidade = []
 
-            if numero not in candidatos:
-                candidatos.append(numero)
+    for i in range(-11, 12):
+        numero = roleta[(posicao + i) % len(roleta)]
 
-        st.success(f"Último resultado: {ultimo}")
+        if numero not in possibilidade:
+            possibilidade.append(numero)
 
-        st.markdown("### 🔥 22 CANDIDATOS")
+    st.success(f"Último resultado: {ultimo}")
 
-        # Divide em 2 linhas de 11
-        colunas = st.columns(11)
+    st.markdown("## 🔥 POSSIBILIDADE")
+    st.write("22 candidatos ao redor do último resultado:")
 
-        for i, numero in enumerate(candidatos):
-            with colunas[i % 11]:
-                st.metric("", numero)
+    colunas = st.columns(11)
 
-        st.markdown("### 📊 Análise")
+    for i, numero in enumerate(possibilidade):
+        with colunas[i % 11]:
+            st.metric("", numero)
 
-        vizinhos = []
-        for distancia in range(1, 6):
-            esquerda = roleta[(posicao - distancia) % len(roleta)]
-            direita = roleta[(posicao + distancia) % len(roleta)]
-            vizinhos.extend([esquerda, direita])
+    # ==================================================
+    # 2️⃣ MARCAÇÕES — 10 vizinhos mais próximos
+    # ==================================================
 
-        st.write("**Vizinhos mais próximos:**")
-        st.write(vizinhos)
+    marcacoes = []
 
-        st.warning(
-            "⚠️ Estes números são candidatos estatísticos baseados "
-            "na posição na roda. Isso não garante o próximo resultado."
-        )
+    for distancia in range(1, 6):
+        esquerda = roleta[(posicao - distancia) % len(roleta)]
+        direita = roleta[(posicao + distancia) % len(roleta)]
 
-else:
-    st.info("Digite o último número que saiu e toque em ANALISAR.")
+        if esquerda not in marcacoes:
+            marcacoes.append(esquerda)
+
+        if direita not in marcacoes:
+            marcacoes.append(direita)
+
+    st.markdown("## 🎯 MARCAÇÕES")
+    st.write("10 vizinhos mais próximos:")
+
+    colunas = st.columns(5)
+
+    for i, numero in enumerate(marcacoes):
+        with colunas[i % 5]:
+            st.metric("", numero)
+
+    # ==================================================
+    # 3️⃣ POSSÍVEIS — 6 mais próximos
+    # ==================================================
+
+    possiveis = []
+
+    for distancia in range(1, 4):
+        esquerda = roleta[(posicao - distancia) % len(roleta)]
+        direita = roleta[(posicao + distancia) % len(roleta)]
+
+        if esquerda not in possiveis:
+            possiveis.append(esquerda)
+
+        if direita not in possiveis:
+            possiveis.append(direita)
+
+    st.markdown("## 🔥 POSSÍVEIS")
+    st.write("Os 6 números imediatamente vizinhos:")
+
+    colunas = st.columns(6)
+
+    for i, numero in enumerate(possiveis):
+        with colunas[i]:
+            st.metric("", numero)
+
+    # ==================================================
+    # AVISO
+    # ==================================================
+
+    st.warning(
+        "⚠️ As marcações são baseadas exclusivamente na posição "
+        "dos números na roda. Elas não garantem o próximo resultado."
+    )
