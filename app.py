@@ -1,6 +1,9 @@
 import streamlit as st
 from collections import Counter
-import math
+
+# ============================================================
+# CONFIGURAÇÃO
+# ============================================================
 
 st.set_page_config(
     page_title="ROBÔ SGU",
@@ -9,7 +12,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# ROleta europeia - ordem física da roda
+# ROLETA EUROPEIA
 # ============================================================
 
 ROULETA = [
@@ -29,7 +32,7 @@ FIBONACCI = {
 }
 
 # ============================================================
-# MEMÓRIA
+# MEMÓRIA DO APLICATIVO
 # ============================================================
 
 if "historico" not in st.session_state:
@@ -41,8 +44,8 @@ if "base_110" not in st.session_state:
 if "analisado" not in st.session_state:
     st.session_state.analisado = False
 
-if "ultimo" not in st.session_state:
-    st.session_state.ultimo = None
+if "ultimo_adicionado" not in st.session_state:
+    st.session_state.ultimo_adicionado = None
 
 
 # ============================================================
@@ -62,68 +65,76 @@ def ler_resultados(texto):
 
     for item in texto.split():
         try:
-            n = int(item)
+            numero = int(item)
 
-            if 0 <= n <= 36:
-                numeros.append(n)
+            if 0 <= numero <= 36:
+                numeros.append(numero)
 
-        except ValueError:
+        except:
             pass
 
     return numeros
 
 
 def distancia_roda(a, b):
+    if a not in ROULETA or b not in ROULETA:
+        return 0
+
     pa = ROULETA.index(a)
     pb = ROULETA.index(b)
 
-    d = abs(pa - pb)
+    distancia = abs(pa - pb)
 
-    return min(d, 37 - d)
+    return min(distancia, 37 - distancia)
 
 
-def vizinhos_do_numero(numero):
-    pos = ROULETA.index(numero)
+def vizinhos(numero, quantidade=11):
+    if numero not in ROULETA:
+        return [], []
+
+    posicao = ROULETA.index(numero)
 
     esquerda = [
-        ROULETA[(pos - i) % 37]
-        for i in range(1, 12)
+        ROULETA[(posicao - i) % 37]
+        for i in range(1, quantidade + 1)
     ]
 
     direita = [
-        ROULETA[(pos + i) % 37]
-        for i in range(1, 12)
+        ROULETA[(posicao + i) % 37]
+        for i in range(1, quantidade + 1)
     ]
 
     return esquerda, direita
+
+
+def faixa(numero):
+    if numero <= 9:
+        return "0-9"
+
+    if numero <= 19:
+        return "10-19"
+
+    if numero <= 29:
+        return "20-29"
+
+    return "30-36"
 
 
 def soma_digitos(numero):
     return sum(int(x) for x in str(numero))
 
 
-def faixa(numero):
-    if numero <= 9:
-        return "0-9"
-    if numero <= 19:
-        return "10-19"
-    if numero <= 29:
-        return "20-29"
-    return "30-36"
+# ============================================================
+# MOTOR DE ANÁLISE
+# ============================================================
 
+def analisar(historico):
 
-def analisar(historico, ultimo):
-
-    if len(historico) == 0:
+    if len(historico) < 1:
         return None
 
-    # Os 22 candidatos são definidos pela posição
-    # do último número na roda.
-    esquerda, direita = vizinhos_do_numero(ultimo)
+    ultimo = historico[-1]
 
-    candidatos = esquerda + direita
-
-    # Janelas estatísticas
     ultimos_110 = historico[-110:]
     ultimos_50 = historico[-50:]
     ultimos_30 = historico[-30:]
@@ -137,79 +148,89 @@ def analisar(historico, ultimo):
     freq_20 = Counter(ultimos_20)
     freq_10 = Counter(ultimos_10)
 
-    # --------------------------------------------------------
-    # Propriedades matemáticas observadas no histórico
-    # --------------------------------------------------------
+    esquerda, direita = vizinhos(ultimo)
 
-    def proporcao(lista, funcao):
+    candidatos = esquerda + direita
+
+    # Remove duplicados mantendo a ordem
+    candidatos = list(dict.fromkeys(candidatos))
+
+    scores = {}
+    detalhes = {}
+
+    # ========================================================
+    # ESTATÍSTICAS GERAIS
+    # ========================================================
+
+    def proporcao(lista, condicao):
+
         if not lista:
             return 0
 
         return sum(
             1 for n in lista
-            if funcao(n)
+            if condicao(n)
         ) / len(lista)
-
-    primo_total = proporcao(
-        historico,
-        lambda n: n in PRIMOS
-    )
-
-    primo_recente = proporcao(
-        ultimos_30,
-        lambda n: n in PRIMOS
-    )
-
-    fib_total = proporcao(
-        historico,
-        lambda n: n in FIBONACCI
-    )
-
-    fib_recente = proporcao(
-        ultimos_30,
-        lambda n: n in FIBONACCI
-    )
 
     pares_total = proporcao(
         [n for n in historico if n != 0],
         lambda n: n % 2 == 0
     )
 
-    pares_recente = proporcao(
+    pares_30 = proporcao(
         [n for n in ultimos_30 if n != 0],
         lambda n: n % 2 == 0
     )
 
+    primos_total = proporcao(
+        historico,
+        lambda n: n in PRIMOS
+    )
+
+    primos_30 = proporcao(
+        ultimos_30,
+        lambda n: n in PRIMOS
+    )
+
+    fibonacci_total = proporcao(
+        historico,
+        lambda n: n in FIBONACCI
+    )
+
+    fibonacci_30 = proporcao(
+        ultimos_30,
+        lambda n: n in FIBONACCI
+    )
+
     faixas_total = Counter(
-        faixa(n) for n in historico
+        faixa(n)
+        for n in historico
     )
 
-    faixas_recente = Counter(
-        faixa(n) for n in ultimos_30
+    faixas_30 = Counter(
+        faixa(n)
+        for n in ultimos_30
     )
-
-    scores = {}
-    detalhes = {}
 
     # ========================================================
-    # SCORE DOS 22
+    # SCORE DE CADA CANDIDATO
     # ========================================================
 
     for numero in candidatos:
 
-        score = 0.0
+        score = 0
         motivos = []
 
         # ----------------------------------------------------
         # FREQUÊNCIA
         # ----------------------------------------------------
 
-        score += freq_total[numero] * 0.4
-        score += freq_110[numero] * 1.5
-        score += freq_50[numero] * 2.0
-        score += freq_30[numero] * 2.5
-        score += freq_20[numero] * 3.0
-        score += freq_10[numero] * 3.5
+        score += freq_total[numero] * 0.3
+        score += freq_110[numero] * 1.2
+        score += freq_50[numero] * 1.8
+        score += freq_30[numero] * 2.2
+        score += freq_20[numero] * 2.7
+        score += freq_10[numero] * 3.0
 
         if freq_30[numero] > 0:
             motivos.append("frequência recente")
@@ -228,7 +249,9 @@ def analisar(historico, ultimo):
                 break
 
         if atraso >= 10:
-            score += min(atraso, 30) * 0.25
+
+            score += min(atraso, 30) * 0.30
+
             motivos.append("atraso")
 
         # ----------------------------------------------------
@@ -240,33 +263,42 @@ def analisar(historico, ultimo):
             numero
         )
 
-        score += max(
-            0,
-            12 - distancia
-        ) * 1.2
-
         if distancia <= 3:
-            motivos.append("vizinho próximo")
+
+            score += 5
+
+            motivos.append(
+                "vizinho próximo"
+            )
+
+        elif distancia <= 6:
+
+            score += 3
+
+        elif distancia <= 10:
+
+            score += 1
 
         # ----------------------------------------------------
-        # CONCENTRAÇÃO DE VIZINHOS
+        # CONCENTRAÇÃO DOS ÚLTIMOS 30
         # ----------------------------------------------------
 
-        concentracao = 0
-
-        for resultado in ultimos_30:
-
+        concentracao = sum(
+            1
+            for resultado in ultimos_30
             if distancia_roda(
                 resultado,
                 numero
-            ) <= 2:
+            ) <= 2
+        )
 
-                concentracao += 1
-
-        score += concentracao * 1.3
+        score += concentracao * 1.2
 
         if concentracao >= 2:
-            motivos.append("concentração na roda")
+
+            motivos.append(
+                "concentração na roda"
+            )
 
         # ----------------------------------------------------
         # PRIMOS
@@ -275,13 +307,16 @@ def analisar(historico, ultimo):
         if numero in PRIMOS:
 
             diferenca = (
-                primo_recente - primo_total
+                primos_30 -
+                primos_total
             )
 
-            score += diferenca * 30
+            score += diferenca * 25
 
             if diferenca > 0:
-                motivos.append("padrão primo")
+                motivos.append(
+                    "padrão de primos"
+                )
 
         # ----------------------------------------------------
         # FIBONACCI
@@ -290,13 +325,16 @@ def analisar(historico, ultimo):
         if numero in FIBONACCI:
 
             diferenca = (
-                fib_recente - fib_total
+                fibonacci_30 -
+                fibonacci_total
             )
 
-            score += diferenca * 30
+            score += diferenca * 25
 
             if diferenca > 0:
-                motivos.append("padrão Fibonacci")
+                motivos.append(
+                    "padrão Fibonacci"
+                )
 
         # ----------------------------------------------------
         # PAR / ÍMPAR
@@ -307,28 +345,33 @@ def analisar(historico, ultimo):
             if numero % 2 == 0:
 
                 diferenca = (
-                    pares_recente - pares_total
+                    pares_30 -
+                    pares_total
                 )
 
-                score += diferenca * 20
+                score += diferenca * 15
 
                 if diferenca > 0:
-                    motivos.append("padrão par")
+                    motivos.append(
+                        "tendência par"
+                    )
 
             else:
 
                 diferenca = (
-                    (1 - pares_recente)
-                    - (1 - pares_total)
+                    (1 - pares_30) -
+                    (1 - pares_total)
                 )
 
-                score += diferenca * 20
+                score += diferenca * 15
 
                 if diferenca > 0:
-                    motivos.append("padrão ímpar")
+                    motivos.append(
+                        "tendência ímpar"
+                    )
 
         # ----------------------------------------------------
-        # FAIXA
+        # FAIXAS
         # ----------------------------------------------------
 
         f = faixa(numero)
@@ -339,18 +382,22 @@ def analisar(historico, ultimo):
         )
 
         recente_faixa = (
-            faixas_recente[f]
+            faixas_30[f]
             / len(ultimos_30)
         )
 
         diferenca_faixa = (
-            recente_faixa - total_faixa
+            recente_faixa -
+            total_faixa
         )
 
         score += diferenca_faixa * 30
 
         if diferenca_faixa > 0:
-            motivos.append("faixa em destaque")
+
+            motivos.append(
+                "faixa em destaque"
+            )
 
         # ----------------------------------------------------
         # SOMA DOS ALGARISMOS
@@ -358,33 +405,46 @@ def analisar(historico, ultimo):
 
         soma = soma_digitos(numero)
 
-        total_soma = sum(
-            1 for n in historico
+        soma_total = sum(
+            1
+            for n in historico
             if soma_digitos(n) == soma
         )
 
-        recente_soma = sum(
-            1 for n in ultimos_30
+        soma_recente = sum(
+            1
+            for n in ultimos_30
             if soma_digitos(n) == soma
         )
 
-        esperado = (
-            total_soma / len(historico) * 30
-        )
+        if soma_total > 0:
 
-        if recente_soma > esperado:
-            score += 2
-            motivos.append("soma dos algarismos")
+            esperado = (
+                soma_total /
+                len(historico)
+                * len(ultimos_30)
+            )
+
+            if soma_recente > esperado:
+
+                score += 2
+
+                motivos.append(
+                    "soma dos algarismos"
+                )
 
         # ----------------------------------------------------
-        # PADRÃO DE DISTÂNCIA ENTRE RESULTADOS
+        # DISTÂNCIAS ENTRE GIROS
         # ----------------------------------------------------
 
         if len(historico) >= 2:
 
             distancias = []
 
-            for i in range(1, len(historico)):
+            for i in range(
+                1,
+                len(historico)
+            ):
 
                 distancias.append(
                     distancia_roda(
@@ -406,29 +466,29 @@ def analisar(historico, ultimo):
                     distancia - media
                 ) <= 2:
 
-                    score += 3
+                    score += 2
+
                     motivos.append(
                         "padrão de distância"
                     )
 
         # ----------------------------------------------------
-        # REPETIÇÃO DE PADRÕES
+        # REPETIÇÕES DE PADRÃO
         # ----------------------------------------------------
 
-        repeticoes = 0
-
-        for resultado in ultimos_20:
-
+        repeticoes = sum(
+            1
+            for resultado in ultimos_20
             if distancia_roda(
                 resultado,
                 numero
-            ) == distancia:
+            ) == distancia
+        )
 
-                repeticoes += 1
-
-        score += repeticoes * 0.6
+        score += repeticoes * 0.5
 
         if repeticoes >= 2:
+
             motivos.append(
                 "repetição de padrão"
             )
@@ -438,11 +498,11 @@ def analisar(historico, ultimo):
         detalhes[numero] = {
             "score": score,
             "frequencia": freq_total[numero],
-            "ultimos_110": freq_110[numero],
-            "ultimos_50": freq_50[numero],
-            "ultimos_30": freq_30[numero],
-            "ultimos_20": freq_20[numero],
-            "ultimos_10": freq_10[numero],
+            "freq_110": freq_110[numero],
+            "freq_50": freq_50[numero],
+            "freq_30": freq_30[numero],
+            "freq_20": freq_20[numero],
+            "freq_10": freq_10[numero],
             "atraso": atraso,
             "distancia": distancia,
             "motivos": motivos
@@ -458,29 +518,44 @@ def analisar(historico, ultimo):
         reverse=True
     )
 
+    # 22 candidatos
+    ranking_22 = ranking[:22]
+
+    # divisão dos grupos
+    probabilidade = ranking_22[:8]
+
+    marcacoes = ranking_22[8:15]
+
+    possiveis = ranking_22[15:22]
+
     return {
-        "ranking": ranking,
-        "probabilidade": ranking[:8],
-        "marcacoes": ranking[8:15],
-        "possiveis": ranking[15:22],
+        "ultimo": ultimo,
+        "ranking": ranking_22,
+        "probabilidade": probabilidade,
+        "marcacoes": marcacoes,
+        "possiveis": possiveis,
         "scores": scores,
         "detalhes": detalhes
     }
 
 
 # ============================================================
-# INTERFACE
+# TÍTULO
 # ============================================================
 
 st.title("🎯 ROBÔ SGU")
-st.subheader("MOTOR MATEMÁTICO ADAPTATIVO")
 
-st.caption(
-    "Análise estatística baseada no histórico da roleta."
+st.header(
+    "MOTOR MATEMÁTICO ADAPTATIVO"
 )
 
+st.caption(
+    "Análise estatística baseada no histórico informado."
+)
+
+
 # ============================================================
-# 1. COLE OS 110
+# 1 — OS 110 RESULTADOS
 # ============================================================
 
 st.markdown(
@@ -488,9 +563,9 @@ st.markdown(
 )
 
 texto_110 = st.text_area(
-    "Cole os resultados",
-    height=150,
-    placeholder="Cole os 110 resultados aqui..."
+    "Últimos 110 resultados",
+    placeholder="Cole os 110 números aqui...",
+    height=180
 )
 
 if st.button(
@@ -498,199 +573,247 @@ if st.button(
     use_container_width=True
 ):
 
-    resultados = ler_resultados(texto_110)
+    resultados = ler_resultados(
+        texto_110
+    )
 
     if len(resultados) != 110:
 
         st.error(
-            f"Foram encontrados {len(resultados)} resultados. "
-            "É necessário exatamente 110."
+            f"⚠️ Foram encontrados "
+            f"{len(resultados)} números. "
+            f"É necessário colocar exatamente 110."
         )
 
     else:
 
-        st.session_state.base_110 = resultados.copy()
+        st.session_state.base_110 = (
+            resultados.copy()
+        )
 
-        st.session_state.historico = resultados.copy()
+        st.session_state.historico = (
+            resultados.copy()
+        )
 
         st.session_state.analisado = True
 
-        st.session_state.ultimo = resultados[-1]
+        st.session_state.ultimo_adicionado = (
+            resultados[-1]
+        )
 
         st.success(
-            "✅ 110 resultados carregados para a análise inicial."
+            "✅ Os 110 resultados foram carregados."
         )
+
+        st.rerun()
 
 
 # ============================================================
-# 2. ÚLTIMO NÚMERO
+# 2 — ADICIONAR RESULTADO NOVO
+# ============================================================
+#
+# IMPORTANTE:
+# Esta parte fica FORA do if analisado.
+# Portanto o botão aparece na tela desde o início.
+# ============================================================
+
+st.divider()
+
+st.markdown(
+    "## 🎰 2. ÚLTIMO RESULTADO"
+)
+
+st.caption(
+    "Depois da análise inicial, coloque aqui cada novo "
+    "resultado da roleta, um por vez."
+)
+
+novo_numero = st.number_input(
+    "Número que acabou de sair",
+    min_value=0,
+    max_value=36,
+    value=0,
+    step=1,
+    key="novo_numero"
+)
+
+if st.button(
+    "➕ ADICIONAR ÚLTIMO RESULTADO",
+    use_container_width=True
+):
+
+    # Só permite adicionar depois dos 110 iniciais
+    if not st.session_state.analisado:
+
+        st.warning(
+            "Primeiro carregue e analise os 110 resultados."
+        )
+
+    else:
+
+        numero = int(novo_numero)
+
+        st.session_state.historico.append(
+            numero
+        )
+
+        st.session_state.ultimo_adicionado = (
+            numero
+        )
+
+        st.success(
+            f"✅ Resultado {numero} adicionado ao histórico."
+        )
+
+        st.rerun()
+
+
+# ============================================================
+# 3 — HISTÓRICO CONTÍNUO
 # ============================================================
 
 if st.session_state.analisado:
 
+    historico = (
+        st.session_state.historico
+    )
+
     st.divider()
 
     st.markdown(
-        "## 🎰 2. ÚLTIMO NÚMERO QUE SAIU"
+        "## 📜 HISTÓRICO CONTÍNUO"
     )
 
-    st.number_input(
-        "Digite o último número",
-        min_value=0,
-        max_value=36,
-        value=0,
-        step=1,
-        key="entrada_ultimo"
+    st.info(
+        f"📈 Total acumulado: "
+        f"{len(historico)} resultados"
     )
 
-    # ========================================================
-    # BOTÃO QUE VOCÊ PEDIU PARA MANTER
-    # ========================================================
-
-    if st.button(
-        "🎯 ANALISAR ÚLTIMO NÚMERO",
-        use_container_width=True
-    ):
-
-        numero = int(
-            st.session_state.entrada_ultimo
+    # Mostra os últimos resultados primeiro
+    st.write(
+        " • ".join(
+            str(n)
+            for n in reversed(historico[-50:])
         )
-
-        # Evita registrar o mesmo número duas vezes
-        # caso o usuário aperte novamente sem novo giro.
-        if (
-            not st.session_state.historico
-            or numero != st.session_state.historico[-1]
-        ):
-
-            st.session_state.historico.append(
-                numero
-            )
-
-        st.session_state.ultimo = numero
-
-        st.rerun()
-
-    # ========================================================
-    # ANÁLISE
-    # ========================================================
-
-    historico = st.session_state.historico
-    ultimo = st.session_state.ultimo
-
-    analise = analisar(
-        historico,
-        ultimo
     )
 
-    if analise:
+    # ========================================================
+    # ANÁLISE ATUAL
+    # ========================================================
 
-        st.info(
-            f"📈 Histórico acumulado: "
-            f"{len(historico)} resultados"
-        )
+    resultado = analisar(
+        historico
+    )
+
+    if resultado:
+
+        ultimo = resultado["ultimo"]
+
+        st.divider()
 
         st.markdown(
-            f"### 🎯 Último: **{ultimo}**"
+            f"## 🔥 ANÁLISE ATUAL — ÚLTIMO: {ultimo}"
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # 22
-        # ====================================================
+        # ----------------------------------------------------
 
         st.markdown(
-            "## 📊 22 CANDIDATOS"
+            "### 📊 22 CANDIDATOS"
         )
 
         st.write(
             " • ".join(
-                map(
-                    str,
-                    analise["ranking"]
-                )
+                str(n)
+                for n in resultado["ranking"]
             )
         )
 
-        # ====================================================
-        # 8
-        # ====================================================
+        # ----------------------------------------------------
+        # PROBABILIDADE
+        # ----------------------------------------------------
 
         st.markdown(
-            "## 🔥 PROBABILIDADE — 8"
+            "### 🔥 PROBABILIDADE"
         )
 
         st.write(
             " • ".join(
-                map(
-                    str,
-                    analise["probabilidade"]
-                )
+                str(n)
+                for n in resultado[
+                    "probabilidade"
+                ]
             )
         )
 
-        # ====================================================
-        # 7
-        # ====================================================
+        # ----------------------------------------------------
+        # MARCAÇÕES
+        # ----------------------------------------------------
 
         st.markdown(
-            "## 🎯 MARCAÇÕES — 7"
+            "### 🎯 MARCAÇÕES"
         )
 
         st.write(
             " • ".join(
-                map(
-                    str,
-                    analise["marcacoes"]
-                )
+                str(n)
+                for n in resultado[
+                    "marcacoes"
+                ]
             )
         )
 
-        # ====================================================
-        # 7
-        # ====================================================
+        # ----------------------------------------------------
+        # POSSÍVEIS
+        # ----------------------------------------------------
 
         st.markdown(
-            "## 🔎 POSSÍVEIS — 7"
+            "### 🔎 POSSÍVEIS"
         )
 
         st.write(
             " • ".join(
-                map(
-                    str,
-                    analise["possiveis"]
-                )
+                str(n)
+                for n in resultado[
+                    "possiveis"
+                ]
             )
         )
 
-        # ====================================================
+        # ----------------------------------------------------
         # VIZINHOS
-        # ====================================================
+        # ----------------------------------------------------
 
-        st.markdown(
-            "## 🎰 VIZINHOS DO ÚLTIMO"
+        esquerda, direita = vizinhos(
+            ultimo
         )
 
-        esquerda, direita = vizinhos_do_numero(
-            ultimo
+        st.markdown(
+            "### 🎰 VIZINHOS DO ÚLTIMO"
         )
 
         st.write(
             "⬅️ Esquerda: "
             + " • ".join(
-                map(str, esquerda)
+                str(n)
+                for n in esquerda
             )
         )
 
         st.write(
             "➡️ Direita: "
             + " • ".join(
-                map(str, direita)
+                str(n)
+                for n in direita
             )
         )
 
         # ====================================================
         # RESUMO
         # ====================================================
+
+        st.divider()
 
         st.markdown(
             f"## 📊 RESUMO DO {ultimo}"
@@ -699,30 +822,30 @@ if st.session_state.analisado:
         st.write(
             "🔥 Probabilidade: "
             + ", ".join(
-                map(
-                    str,
-                    analise["probabilidade"]
-                )
+                str(n)
+                for n in resultado[
+                    "probabilidade"
+                ]
             )
         )
 
         st.write(
             "🎯 Marcações: "
             + ", ".join(
-                map(
-                    str,
-                    analise["marcacoes"]
-                )
+                str(n)
+                for n in resultado[
+                    "marcacoes"
+                ]
             )
         )
 
         st.write(
             "🔎 Possíveis: "
             + ", ".join(
-                map(
-                    str,
-                    analise["possiveis"]
-                )
+                str(n)
+                for n in resultado[
+                    "possiveis"
+                ]
             )
         )
 
@@ -730,22 +853,26 @@ if st.session_state.analisado:
         # DETALHES MATEMÁTICOS
         # ====================================================
 
+        st.divider()
+
         st.markdown(
-            "## 🧠 DETALHES DA ANÁLISE"
+            "## 🧠 DETALHES MATEMÁTICOS"
         )
 
-        for numero in analise["ranking"]:
+        for numero in resultado["ranking"]:
 
-            dados = analise["detalhes"][numero]
+            dados = resultado[
+                "detalhes"
+            ][numero]
 
             with st.expander(
-                f"{numero} — Score {dados['score']:.2f}"
+                f"🔢 {numero} — Score {dados['score']:.2f}"
             ):
 
                 if dados["motivos"]:
 
                     st.write(
-                        "**Sinais:** "
+                        "**Sinais encontrados:** "
                         + ", ".join(
                             dados["motivos"]
                         )
@@ -754,7 +881,8 @@ if st.session_state.analisado:
                 else:
 
                     st.write(
-                        "**Sinais:** pontuação estatística"
+                        "**Sinais encontrados:** "
+                        "nenhum destaque específico."
                     )
 
                 st.write(
@@ -763,28 +891,28 @@ if st.session_state.analisado:
                 )
 
                 st.write(
-                    f"Últimos 110: "
-                    f"{dados['ultimos_110']}"
+                    f"Frequência nos 110: "
+                    f"{dados['freq_110']}"
                 )
 
                 st.write(
-                    f"Últimos 50: "
-                    f"{dados['ultimos_50']}"
+                    f"Frequência nos 50: "
+                    f"{dados['freq_50']}"
                 )
 
                 st.write(
-                    f"Últimos 30: "
-                    f"{dados['ultimos_30']}"
+                    f"Frequência nos 30: "
+                    f"{dados['freq_30']}"
                 )
 
                 st.write(
-                    f"Últimos 20: "
-                    f"{dados['ultimos_20']}"
+                    f"Frequência nos 20: "
+                    f"{dados['freq_20']}"
                 )
 
                 st.write(
-                    f"Últimos 10: "
-                    f"{dados['ultimos_10']}"
+                    f"Frequência nos 10: "
+                    f"{dados['freq_10']}"
                 )
 
                 st.write(
@@ -797,27 +925,15 @@ if st.session_state.analisado:
                     f"{dados['distancia']}"
                 )
 
-        # ====================================================
-        # HISTÓRICO CONTÍNUO
-        # ====================================================
 
-        st.markdown(
-            "## 📜 HISTÓRICO CONTÍNUO"
-        )
-
-        st.caption(
-            f"{len(historico)} resultados acumulados"
-        )
-
-        st.write(
-            " • ".join(
-                map(str, historico)
-            )
-        )
+# ============================================================
+# RODAPÉ
+# ============================================================
 
 st.divider()
 
 st.caption(
-    "ROBÔ SGU — análise estatística. "
-    "Nenhuma regra matemática garante o próximo resultado."
-        )
+    "ROBÔ SGU — análise estatística adaptativa. "
+    "Os cálculos identificam padrões no histórico, "
+    "mas não garantem o próximo resultado."
+)
