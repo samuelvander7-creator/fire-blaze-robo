@@ -1,10 +1,6 @@
 import streamlit as st
 from collections import Counter
 
-# ==========================================================
-# CONFIGURAÇÃO
-# ==========================================================
-
 st.set_page_config(
     page_title="FIRE BLAZE",
     page_icon="🎰",
@@ -14,7 +10,6 @@ st.set_page_config(
 st.title("🎰 FIRE BLAZE")
 st.subheader("ANALISADOR DE 22 CANDIDATOS")
 
-# Ordem da roleta europeia
 RODA = [
     0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
     6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
@@ -23,123 +18,160 @@ RODA = [
 ]
 
 # ==========================================================
-# CAMPO DOS 110 RESULTADOS
+# HISTÓRICO DOS 110 RESULTADOS
 # ==========================================================
 
-st.markdown("### 📋 COLE OS 110 ÚLTIMOS RESULTADOS")
+if "historico" not in st.session_state:
+    st.session_state.historico = []
+
+# ==========================================================
+# ETAPA 1 - COLAR OS 110 RESULTADOS
+# ==========================================================
+
+st.markdown("## 📋 1. COLE OS 110 ÚLTIMOS RESULTADOS")
 
 st.caption(
-    "Cole os números separados por espaço, vírgula ou um por linha."
+    "Cole os resultados separados por espaço, vírgula ou um por linha."
 )
 
-texto_resultados = st.text_area(
-    "Resultados",
+texto_110 = st.text_area(
+    "Últimos 110 resultados",
     height=180,
-    placeholder="Exemplo:\n25 12 10 35 17 3 21 8 30..."
+    placeholder="Exemplo: 19 34 2 14 17 22..."
 )
 
-# ==========================================================
-# ANALISAR
-# ==========================================================
+if st.button("📥 CARREGAR OS 110 RESULTADOS", use_container_width=True):
 
-if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
+    texto = (
+        texto_110
+        .replace(",", " ")
+        .replace(";", " ")
+        .replace("\n", " ")
+    )
 
-    # ------------------------------------------------------
-    # TRANSFORMA O TEXTO EM NÚMEROS
-    # ------------------------------------------------------
+    numeros = []
 
-    texto = texto_resultados.replace(",", " ")
-    texto = texto.replace(";", " ")
-    texto = texto.replace("\n", " ")
-
-    partes = texto.split()
-
-    resultados = []
-
-    for parte in partes:
+    for item in texto.split():
         try:
-            numero = int(parte)
+            numero = int(item)
 
             if 0 <= numero <= 36:
-                resultados.append(numero)
+                numeros.append(numero)
 
         except:
             pass
 
-    # ------------------------------------------------------
-    # VERIFICAÇÃO
-    # ------------------------------------------------------
+    if len(numeros) < 110:
 
-    if len(resultados) == 0:
-
-        st.error("❌ Nenhum resultado válido foi encontrado.")
-
-    elif len(resultados) < 110:
-
-        st.warning(
-            f"⚠️ Você colocou {len(resultados)} resultados. "
-            f"O ideal é colocar os 110 últimos resultados."
+        st.error(
+            f"❌ Foram encontrados apenas {len(numeros)} números. "
+            "Cole os 110 resultados."
         )
 
     else:
 
-        # Usa exatamente os 110 mais recentes
-        resultados = resultados[-110:]
-
-        ultimo = resultados[-1]
+        # Pega somente os 110 mais recentes
+        st.session_state.historico = numeros[-110:]
 
         st.success(
-            f"✅ {len(resultados)} resultados carregados."
+            f"✅ {len(st.session_state.historico)} resultados carregados!"
         )
 
-        st.info(
-            f"🎰 Último resultado identificado: **{ultimo}**"
+# ==========================================================
+# MOSTRA A BASE ATUAL
+# ==========================================================
+
+if st.session_state.historico:
+
+    st.info(
+        f"📊 Base atual: {len(st.session_state.historico)} resultados"
+    )
+
+    st.write(
+        "Último resultado da base:",
+        st.session_state.historico[-1]
+    )
+
+# ==========================================================
+# ETAPA 2 - NOVO RESULTADO
+# ==========================================================
+
+st.markdown("---")
+st.markdown("## 🎰 2. NOVO RESULTADO")
+
+st.caption(
+    "Saiu um novo número? Digite aqui. "
+    "O aplicativo vai analisar esse resultado usando os 110 anteriores."
+)
+
+novo_resultado = st.number_input(
+    "Novo número que acabou de sair",
+    min_value=0,
+    max_value=36,
+    value=0,
+    step=1
+)
+
+if st.button("🎯 ANALISAR NOVO RESULTADO", use_container_width=True):
+
+    if len(st.session_state.historico) < 110:
+
+        st.error(
+            "❌ Primeiro carregue os 110 resultados."
         )
 
+    else:
+
         # ==================================================
-        # FREQUÊNCIA
+        # GUARDA OS 110 ANTERIORES
         # ==================================================
 
-        frequencia = Counter(resultados)
+        base = st.session_state.historico.copy()
 
-        # Últimos 20 resultados recebem peso maior
-        recentes = Counter(resultados[-20:])
+        # O novo resultado entra no histórico
+        historico_atualizado = base + [novo_resultado]
 
-        # Últimos 40 resultados
-        medio_prazo = Counter(resultados[-40:])
+        # Mantém somente os 110 mais recentes
+        historico_atualizado = historico_atualizado[-110:]
+
+        # Atualiza a memória do aplicativo
+        st.session_state.historico = historico_atualizado
+
+        # ==================================================
+        # O NOVO RESULTADO É O PONTO DE REFERÊNCIA
+        # ==================================================
+
+        ultimo = novo_resultado
+
+        frequencia = Counter(base)
+
+        ultimos_20 = Counter(base[-20:])
+        ultimos_40 = Counter(base[-40:])
 
         pos_ultimo = RODA.index(ultimo)
 
         scores = {}
 
         # ==================================================
-        # CALCULA SCORE DOS 36 NÚMEROS RESTANTES
+        # CALCULA O SCORE DOS NÚMEROS
         # ==================================================
 
         for numero in RODA:
 
+            # Não coloca o próprio número que acabou de sair
             if numero == ultimo:
                 continue
 
             score = 0
 
-            # ------------------------------------------------
-            # FREQUÊNCIA DOS 110
-            # ------------------------------------------------
-
+            # Frequência nos 110
             score += frequencia[numero] * 2
 
-            # ------------------------------------------------
-            # FREQUÊNCIA DOS ÚLTIMOS 40
-            # ------------------------------------------------
+            # Frequência nos últimos 40
+            score += ultimos_40[numero] * 3
 
-            score += medio_prazo[numero] * 3
-
-            # ------------------------------------------------
-            # FREQUÊNCIA DOS ÚLTIMOS 20
-            # ------------------------------------------------
-
-            score += recentes[numero] * 5
+            # Frequência nos últimos 20
+            score += ultimos_20[numero] * 5
 
             # ------------------------------------------------
             # POSIÇÃO NA RODA
@@ -152,37 +184,24 @@ if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
                 (pos_ultimo - pos_numero) % len(RODA)
             )
 
-            # Quanto mais próximo do último número,
-            # maior a pontuação do modelo.
+            # Peso pela proximidade na roda
+            pesos = {
+                1: 8,
+                2: 7,
+                3: 6,
+                4: 5,
+                5: 4,
+                6: 3,
+                7: 2,
+                8: 1
+            }
 
-            if distancia == 1:
-                score += 8
-
-            elif distancia == 2:
-                score += 7
-
-            elif distancia == 3:
-                score += 6
-
-            elif distancia == 4:
-                score += 5
-
-            elif distancia == 5:
-                score += 4
-
-            elif distancia == 6:
-                score += 3
-
-            elif distancia == 7:
-                score += 2
-
-            elif distancia == 8:
-                score += 1
+            score += pesos.get(distancia, 0)
 
             scores[numero] = score
 
         # ==================================================
-        # ORDENA PELO MAIOR SCORE
+        # RANKING
         # ==================================================
 
         ranking = sorted(
@@ -197,19 +216,30 @@ if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
 
         candidatos = ranking[:22]
 
-        # 8 + 7 + 7 = 22
-
+        # 8 + 7 + 7
         probabilidade = candidatos[:8]
         marcacoes = candidatos[8:15]
         possiveis = candidatos[15:22]
 
         # ==================================================
-        # 🔥 PROBABILIDADE
+        # RESULTADO
+        # ==================================================
+
+        st.success(
+            f"🎰 Último resultado analisado: {ultimo}"
+        )
+
+        st.info(
+            "📊 Análise baseada nos 110 resultados anteriores."
+        )
+
+        # ==================================================
+        # 🔥 8 MAIORES PROBABILIDADES
         # ==================================================
 
         st.markdown("---")
         st.markdown("## 🔥 PROBABILIDADE")
-        st.caption("8 números com maior pontuação do modelo")
+        st.caption("8 maiores scores do modelo")
 
         colunas = st.columns(4)
 
@@ -223,11 +253,11 @@ if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
                 )
 
                 st.caption(
-                    f"Score: {scores[numero]}"
+                    f"Score {scores[numero]}"
                 )
 
         # ==================================================
-        # 🎯 MARCAÇÕES
+        # 🎯 7 MARCAÇÕES
         # ==================================================
 
         st.markdown("---")
@@ -246,11 +276,11 @@ if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
                 )
 
                 st.caption(
-                    f"Score: {scores[numero]}"
+                    f"Score {scores[numero]}"
                 )
 
         # ==================================================
-        # 🟢 POSSÍVEIS
+        # 🟢 7 POSSÍVEIS
         # ==================================================
 
         st.markdown("---")
@@ -269,7 +299,7 @@ if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
                 )
 
                 st.caption(
-                    f"Score: {scores[numero]}"
+                    f"Score {scores[numero]}"
                 )
 
         # ==================================================
@@ -277,30 +307,16 @@ if st.button("🎯 ANALISAR 110 RESULTADOS", use_container_width=True):
         # ==================================================
 
         st.markdown("---")
+        st.markdown("## 📊 RESUMO")
 
-        st.markdown("## 🎯 RESUMO DOS 22")
+        st.write("🔥 **Probabilidade (8):**", probabilidade)
+        st.write("🎯 **Marcações (7):**", marcacoes)
+        st.write("🟢 **Possíveis (7):**", possiveis)
 
-        st.write(
-            "**Probabilidade:**",
-            probabilidade
-        )
-
-        st.write(
-            "**Marcações:**",
-            marcacoes
-        )
-
-        st.write(
-            "**Possíveis:**",
-            possiveis
-        )
-
-        st.success(
-            "🔥 8 + 7 + 7 = 22 candidatos"
-        )
+        st.success("🎯 TOTAL: 22 CANDIDATOS")
 
         st.warning(
-            "⚠️ A pontuação é uma classificação estatística "
-            "do modelo. Em uma roleta justa, nenhum algoritmo "
-            "pode garantir qual será o próximo número."
+            "⚠️ O ranking é uma análise estatística baseada "
+            "nos dados fornecidos e na posição dos números "
+            "na roda. Não garante o próximo resultado."
         )
