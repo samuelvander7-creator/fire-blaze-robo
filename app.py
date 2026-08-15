@@ -11,6 +11,8 @@ st.set_page_config(
     layout="centered"
 )
 
+LIMITE_ANALISE = 200
+
 # ============================================================
 # INTERFACE COMPACTA
 # ============================================================
@@ -18,41 +20,42 @@ st.set_page_config(
 st.markdown("""
 <style>
 html, body, [class*="css"] {
-    font-size: 12px !important;
+    font-size: 11px !important;
 }
 
 p, label, span {
-    font-size: 12px !important;
+    font-size: 11px !important;
 }
 
 h1 {
-    font-size: 22px !important;
-    margin: 2px 0 6px 0 !important;
+    font-size: 21px !important;
+    margin: 2px 0 5px 0 !important;
 }
 
 h2 {
-    font-size: 16px !important;
+    font-size: 15px !important;
     margin: 5px 0 !important;
 }
 
 h3 {
-    font-size: 14px !important;
+    font-size: 13px !important;
     margin: 4px 0 !important;
 }
 
 .stButton button {
-    font-size: 12px !important;
-    min-height: 34px !important;
+    font-size: 11px !important;
+    min-height: 32px !important;
+    padding: 2px 5px !important;
 }
 
 textarea,
 input {
-    font-size: 12px !important;
+    font-size: 11px !important;
 }
 
 .resultado {
     display: inline-block;
-    padding: 4px 7px;
+    padding: 3px 6px;
     margin: 2px;
     border: 1px solid #777;
     border-radius: 5px;
@@ -61,25 +64,25 @@ input {
 
 .central {
     display: inline-block;
-    padding: 5px 8px;
+    padding: 4px 7px;
     margin: 2px;
     border: 2px solid #777;
     border-radius: 5px;
     font-weight: bold;
 }
 
-.caixa {
-    padding: 7px;
+.info-box {
+    padding: 6px;
     border: 1px solid #777;
     border-radius: 7px;
-    margin: 5px 0;
+    margin: 4px 0;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# ORDEM FÍSICA DA ROLETA
+# ORDEM FÍSICA DA ROLETA EUROPEIA
 # ============================================================
 
 RODA = [
@@ -110,7 +113,7 @@ if "ultimo" not in st.session_state:
 
 
 # ============================================================
-# LEITURA DOS RESULTADOS
+# LER RESULTADOS
 # ============================================================
 
 def extrair_numeros(texto):
@@ -128,10 +131,10 @@ def extrair_numeros(texto):
     for item in texto.split():
 
         try:
-            n = int(item)
+            numero = int(item)
 
-            if 0 <= n <= 36:
-                numeros.append(n)
+            if 0 <= numero <= 36:
+                numeros.append(numero)
 
         except ValueError:
             pass
@@ -145,18 +148,21 @@ def extrair_numeros(texto):
 
 def distancia_roda(a, b):
 
-    a = POSICAO[a]
-    b = POSICAO[b]
+    pa = POSICAO[a]
+    pb = POSICAO[b]
 
-    d = abs(a - b)
+    distancia = abs(pa - pb)
 
-    return min(d, 37 - d)
+    return min(
+        distancia,
+        37 - distancia
+    )
 
 
 # ============================================================
 # MARCAÇÃO AUTOMÁTICA
 #
-# 2 de um lado + centro + 2 do outro
+# 2 VIZINHOS + CENTRO + 2 VIZINHOS
 #
 # 0 -> 3 26 0 32 15
 # 3 -> 12 35 3 26 0
@@ -176,10 +182,9 @@ def marcacao_5(numero):
 
 
 # ============================================================
-# 22 POSIÇÕES
+# 22 CANDIDATOS
 #
-# 11 de cada lado do número central.
-# O centro não entra nos 22.
+# 11 DE CADA LADO DO NÚMERO CENTRAL
 # ============================================================
 
 def candidatos_22(numero):
@@ -205,33 +210,33 @@ def candidatos_22(numero):
 
 def calcular_atraso(numero, historico):
 
-    for distancia, valor in enumerate(
+    for distancia, resultado in enumerate(
         reversed(historico)
     ):
 
-        if valor == numero:
+        if resultado == numero:
             return distancia
 
     return len(historico)
 
 
 # ============================================================
-# ANÁLISE MATEMÁTICA
+# ANÁLISE MATEMÁTICA DOS 22
 # ============================================================
 
 def analisar_22(historico, centro):
 
-    janela = historico[-500:]
+    janela = historico[-LIMITE_ANALISE:]
 
     candidatos = candidatos_22(centro)
 
-    freq_total = Counter(janela)
+    freq_200 = Counter(janela)
     freq_110 = Counter(janela[-110:])
     freq_50 = Counter(janela[-50:])
     freq_30 = Counter(janela[-30:])
     freq_10 = Counter(janela[-10:])
 
-    resultado = []
+    resultados = []
 
     for numero in candidatos:
 
@@ -242,7 +247,7 @@ def analisar_22(historico, centro):
         # FREQUÊNCIA
         # ----------------------------------------------------
 
-        score += freq_total[numero] * 0.7
+        score += freq_200[numero] * 0.7
         score += freq_110[numero] * 1.0
         score += freq_50[numero] * 1.3
         score += freq_30[numero] * 1.7
@@ -267,7 +272,9 @@ def analisar_22(historico, centro):
                 5
             )
 
-            motivos.append("atraso")
+            motivos.append(
+                f"atraso {atraso}"
+            )
 
         # ----------------------------------------------------
         # DISTÂNCIA DO CENTRO
@@ -284,7 +291,9 @@ def analisar_22(historico, centro):
         ) * 0.35
 
         if distancia <= 2:
-            motivos.append("vizinho próximo")
+            motivos.append(
+                "vizinho próximo"
+            )
 
         # ----------------------------------------------------
         # PROXIMIDADE NOS ÚLTIMOS 20
@@ -292,11 +301,11 @@ def analisar_22(historico, centro):
 
         proximidade = 0
 
-        for r in janela[-20:]:
+        for resultado in janela[-20:]:
 
             d = distancia_roda(
                 numero,
-                r
+                resultado
             )
 
             if d == 1:
@@ -308,7 +317,10 @@ def analisar_22(historico, centro):
         if proximidade:
 
             score += proximidade * 0.5
-            motivos.append("proximidade recente")
+
+            motivos.append(
+                "proximidade recente"
+            )
 
         # ----------------------------------------------------
         # REPETIÇÃO
@@ -317,15 +329,19 @@ def analisar_22(historico, centro):
         if freq_110[numero] >= 3:
 
             score += 1.5
-            motivos.append("repetição")
+
+            motivos.append(
+                "repetição"
+            )
 
         # ----------------------------------------------------
-        # PRIMO
+        # PRIMOS
         # ----------------------------------------------------
 
         primos = {
-            2, 3, 5, 7, 11, 13,
-            17, 19, 23, 29, 31
+            2, 3, 5, 7, 11,
+            13, 17, 19, 23,
+            29, 31
         }
 
         if numero in primos:
@@ -344,7 +360,7 @@ def analisar_22(historico, centro):
             score += 0.5
 
         # ----------------------------------------------------
-        # PARIDADE
+        # PAR / ÍMPAR
         # ----------------------------------------------------
 
         if numero != 0:
@@ -359,11 +375,15 @@ def analisar_22(historico, centro):
                 for n in janela[-30:]
             )
 
-            if pares > impares and numero % 2 == 0:
-                score += 0.5
+            if pares > impares:
 
-            elif impares > pares and numero % 2 != 0:
-                score += 0.5
+                if numero % 2 == 0:
+                    score += 0.5
+
+            elif impares > pares:
+
+                if numero % 2 != 0:
+                    score += 0.5
 
         # ----------------------------------------------------
         # MÚLTIPLOS
@@ -372,13 +392,15 @@ def analisar_22(historico, centro):
         if numero != 0:
 
             quantidade = sum(
-                numero % d == 0
-                for d in [2, 3, 4, 5, 6, 9]
+                numero % divisor == 0
+                for divisor in [
+                    2, 3, 4, 5, 6, 9
+                ]
             )
 
             score += quantidade * 0.15
 
-        resultado.append({
+        resultados.append({
             "numero": numero,
             "score": round(score, 2),
             "frequencia": freq_110[numero],
@@ -391,12 +413,12 @@ def analisar_22(historico, centro):
     # RANKING
     # --------------------------------------------------------
 
-    resultado.sort(
+    resultados.sort(
         key=lambda x: x["score"],
         reverse=True
     )
 
-    return resultado
+    return resultados
 
 
 # ============================================================
@@ -406,26 +428,26 @@ def analisar_22(historico, centro):
 st.title("🎯 ROBÔ SGU")
 
 st.caption(
-    "Análise física da roda + histórico estatístico"
+    "Roda física + análise matemática + histórico contínuo"
 )
 
 
 # ============================================================
-# BASE INICIAL — ATÉ 500
+# CARREGAR OS 200
 # ============================================================
 
-st.subheader("📥 Histórico inicial")
+st.subheader(
+    "📥 RESULTADOS INICIAIS"
+)
 
 texto = st.text_area(
-    "Cole os resultados da roleta",
-    height=120,
-    placeholder=(
-        "Cole até 500 resultados aqui..."
-    )
+    "Cole até 200 resultados",
+    height=95,
+    placeholder="Cole os resultados da roleta aqui..."
 )
 
 if st.button(
-    "📊 CARREGAR HISTÓRICO",
+    "📊 ANALISAR 200 RESULTADOS",
     use_container_width=True
 ):
 
@@ -437,10 +459,10 @@ if st.button(
             "Nenhum resultado válido encontrado."
         )
 
-    elif len(numeros) > 500:
+    elif len(numeros) > 200:
 
         st.error(
-            "O máximo inicial é 500 resultados."
+            "O máximo inicial é 200 resultados."
         )
 
     else:
@@ -486,18 +508,18 @@ if st.session_state.iniciado:
     )
 
     st.markdown(
-        "### 🔥 Marcação automática"
+        "### 🔥 MARCAÇÃO"
     )
 
     html = ""
 
-    for n in marcacao:
+    for numero in marcacao:
 
-        if n == ultimo:
+        if numero == ultimo:
 
             html += (
                 f'<span class="central">'
-                f'🎯 {n}'
+                f'🎯 {numero}'
                 f'</span>'
             )
 
@@ -505,7 +527,7 @@ if st.session_state.iniciado:
 
             html += (
                 f'<span class="resultado">'
-                f'{n}'
+                f'{numero}'
                 f'</span>'
             )
 
@@ -515,11 +537,11 @@ if st.session_state.iniciado:
     )
 
     st.caption(
-        "2 vizinhos de cada lado + número central"
+        "2 vizinhos de cada lado + resultado central"
     )
 
     # ========================================================
-    # 22 CANDIDATOS
+    # ANÁLISE DOS 22
     # ========================================================
 
     analise = analisar_22(
@@ -528,7 +550,7 @@ if st.session_state.iniciado:
     )
 
     st.markdown(
-        "### 🧮 22 candidatos"
+        "### 🧮 22 CANDIDATOS"
     )
 
     html = ""
@@ -547,56 +569,50 @@ if st.session_state.iniciado:
     )
 
     # ========================================================
-    # GRUPOS
+    # 8 / 7 / 7
     # ========================================================
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.markdown(
-            "### 🔥 8 principais"
-        )
-
-        st.write(
-            " • ".join(
-                str(x["numero"])
-                for x in analise[:8]
-            )
-        )
-
-    with col2:
-
-        st.markdown(
-            "### 🎯 7 marcações"
-        )
-
-        st.write(
-            " • ".join(
-                str(x["numero"])
-                for x in analise[8:15]
-            )
-        )
-
     st.markdown(
-        "### 🔎 7 possíveis"
+        "### 🔥 8 PRINCIPAIS"
     )
 
     st.write(
         " • ".join(
-            str(x["numero"])
-            for x in analise[15:22]
+            str(item["numero"])
+            for item in analise[:8]
+        )
+    )
+
+    st.markdown(
+        "### 🎯 7 MARCAÇÕES"
+    )
+
+    st.write(
+        " • ".join(
+            str(item["numero"])
+            for item in analise[8:15]
+        )
+    )
+
+    st.markdown(
+        "### 🔎 7 POSSÍVEIS"
+    )
+
+    st.write(
+        " • ".join(
+            str(item["numero"])
+            for item in analise[15:22]
         )
     )
 
     # ========================================================
-    # NOVO GIRO
+    # NOVO RESULTADO
     # ========================================================
 
     st.divider()
 
     st.subheader(
-        "🎰 Próximo resultado"
+        "🎰 NOVO RESULTADO"
     )
 
     novo = st.number_input(
@@ -608,7 +624,7 @@ if st.session_state.iniciado:
     )
 
     if st.button(
-        "➕ REGISTRAR RESULTADO",
+        "➕ REGISTRAR",
         use_container_width=True
     ):
 
@@ -621,14 +637,14 @@ if st.session_state.iniciado:
         st.rerun()
 
     # ========================================================
-    # ANÁLISE DETALHADA
+    # DETALHES
     # ========================================================
 
     with st.expander(
-        "🧠 Ver análise matemática"
+        "🧠 ANÁLISE MATEMÁTICA"
     ):
 
-        for i, item in enumerate(
+        for posicao, item in enumerate(
             analise,
             1
         ):
@@ -638,7 +654,8 @@ if st.session_state.iniciado:
             )
 
             st.write(
-                f"**{i:02d}. {item['numero']:02d}** "
+                f"**{posicao:02d}. "
+                f"{item['numero']:02d}** "
                 f"| força {item['score']} "
                 f"| freq. {item['frequencia']} "
                 f"| atraso {item['atraso']} "
@@ -649,17 +666,19 @@ if st.session_state.iniciado:
                 st.caption(motivos)
 
     # ========================================================
-    # HISTÓRICO CONTÍNUO
+    # HISTÓRICO
     # ========================================================
 
     st.divider()
 
     st.subheader(
-        f"📜 Histórico: {len(historico)} resultados"
+        f"📜 HISTÓRICO — "
+        f"{len(historico)} RESULTADOS"
     )
 
-    # Mostra os 500 mais recentes
-    janela = historico[-500:]
+    janela = historico[
+        -LIMITE_ANALISE:
+    ]
 
     for i in range(
         0,
@@ -667,7 +686,9 @@ if st.session_state.iniciado:
         15
     ):
 
-        linha = janela[i:i + 15]
+        linha = janela[
+            i:i + 15
+        ]
 
         st.code(
             " ".join(
@@ -678,14 +699,14 @@ if st.session_state.iniciado:
         )
 
     st.caption(
-        "O histórico continua crescendo automaticamente. "
-        "Para a análise, são consideradas as 500 rodadas mais recentes."
+        "O histórico continua crescendo. "
+        "A análise utiliza sempre os 200 resultados mais recentes."
     )
 
 else:
 
     st.info(
-        "Cole os resultados iniciais para começar."
+        "Cole os resultados para iniciar o robô."
     )
 
 
@@ -696,6 +717,7 @@ else:
 st.divider()
 
 st.caption(
-    "⚠️ Estatística e padrões da roda não garantem o próximo "
-    "resultado em uma roleta aleatória."
-            )
+    "⚠️ A análise é estatística. "
+    "Padrões históricos e posição na roda não garantem "
+    "o próximo resultado."
+)
