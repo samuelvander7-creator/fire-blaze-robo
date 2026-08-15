@@ -2,170 +2,235 @@ import streamlit as st
 from collections import Counter
 
 st.set_page_config(
-    page_title="FIRE BLAZE",
-    page_icon="🎰",
+    page_title="ROBÔ SGU",
+    page_icon="🎯",
     layout="centered"
 )
 
-st.title("🎰 FIRE BLAZE")
-st.subheader("ANALISADOR DE 22 CANDIDATOS")
+# =========================
+# CONFIGURAÇÃO
+# =========================
 
-# ROLETА EUROPEIA
-roleta = [
+ROULETA = [
     0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
     6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
     24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
     29, 7, 28, 12, 35, 3, 26
 ]
 
-# ==================================================
-# 1. COLOCAR OS 110 RESULTADOS
-# ==================================================
+st.title("🎯 ROBÔ SGU")
+st.subheader("ANALISADOR DE 22 CANDIDATOS")
+
+st.info(
+    "⚠️ O ROBÔ SGU faz análise estatística dos resultados informados. "
+    "Isso não garante o próximo resultado."
+)
+
+# =========================
+# 110 RESULTADOS
+# =========================
 
 st.markdown("### 📋 1. COLE OS 110 ÚLTIMOS RESULTADOS")
 
 texto = st.text_area(
-    "Últimos 110 resultados",
+    "Cole os resultados",
     height=150,
-    placeholder="Cole aqui os 110 números..."
+    placeholder="Exemplo:\n29 20 34 5 30 11 12 13 1 26 ..."
 )
 
-# Transformar texto em números
-try:
-    resultados = [
-        int(x)
-        for x in texto.replace(",", " ").split()
-        if x.strip().isdigit()
-    ]
-except:
-    resultados = []
+resultados = []
 
-if resultados:
-    st.success(f"✅ {len(resultados)} resultados carregados.")
+if texto.strip():
+    try:
+        resultados = [
+            int(x)
+            for x in texto.replace(",", " ").split()
+            if x.strip()
+        ]
 
-# ==================================================
-# 2. NÚMERO QUE ACABOU DE SAIR
-# ==================================================
+        resultados = [
+            n for n in resultados
+            if n in ROULETTE
+        ]
 
-st.markdown("### 🎰 2. ÚLTIMO NÚMERO")
+    except:
+        resultados = []
+
+st.caption(f"Resultados carregados: {len(resultados)} / 110")
+
+# =========================
+# ÚLTIMO RESULTADO
+# =========================
+
+st.markdown("### 🎰 2. ÚLTIMO NÚMERO QUE SAIU")
 
 ultimo = st.number_input(
-    "Número que acabou de sair",
+    "Digite o último número",
     min_value=0,
     max_value=36,
     value=0,
     step=1
 )
 
-# ==================================================
+# =========================
 # ANÁLISE
-# ==================================================
+# =========================
 
 if st.button("🎯 ANALISAR", use_container_width=True):
 
-    if len(resultados) < 110:
+    if len(resultados) < 20:
         st.warning(
-            f"⚠️ Precisamos de 110 resultados. "
+            f"⚠️ Precisamos de pelo menos 20 resultados. "
             f"Atualmente: {len(resultados)}"
         )
+        st.stop()
 
-    elif ultimo not in roleta:
-        st.error("Número inválido.")
+    # Frequência
+    frequencia = Counter(resultados)
 
-    else:
+    # Posição do último número na roda
+    pos = ROULETTE.index(ultimo)
 
-        # Posição do último número na roda
-        posicao = roleta.index(ultimo)
+    # Pontuação estatística
+    scores = {}
 
-        # ==========================================
-        # PEGAR 22 NÚMEROS AO REDOR
-        # ==========================================
+    for numero in ROULETTE:
 
-        candidatos = []
+        freq = frequencia.get(numero, 0)
 
-        for i in range(-11, 12):
+        # Recência: quanto mais recente, maior o peso
+        recencia = 0
 
-            if i == 0:
-                continue
+        for i, valor in enumerate(reversed(resultados)):
+            if valor == numero:
+                recencia = max(1, 20 - i)
+                break
 
-            numero = roleta[(posicao + i) % len(roleta)]
-
-            if numero not in candidatos:
-                candidatos.append(numero)
-
-        # ==========================================
-        # FREQUÊNCIA NOS 110 RESULTADOS
-        # ==========================================
-
-        frequencia = Counter(resultados)
-
-        # ==========================================
-        # PONTUAÇÃO DOS 22 CANDIDATOS
-        # ==========================================
-
-        ranking = []
-
-        for numero in candidatos:
-
-            freq = frequencia[numero]
-
-            # frequência simples nos 110 resultados
-            score = freq
-
-            ranking.append((numero, score, freq))
-
-        # Ordenar pela pontuação
-        ranking.sort(
-            key=lambda x: (-x[1], x[0])
+        # Proximidade na roda em relação ao último resultado
+        p = ROULETTE.index(numero)
+        distancia = min(
+            abs(p - pos),
+            len(ROULETTE) - abs(p - pos)
         )
 
-        # ==========================================
-        # DIVIDIR 22 EM 8 + 7 + 7
-        # ==========================================
+        proximidade = max(0, 8 - distancia)
 
-        probabilidade = ranking[:8]
-        marcacoes = ranking[8:15]
-        possiveis = ranking[15:22]
-
-        # ==========================================
-        # RESULTADO COMPACTO
-        # ==========================================
-
-        st.success(f"Último resultado: {ultimo}")
-
-        st.markdown("### 🔥 PROBABILIDADE")
-        st.caption("8 maiores frequências nos 110 resultados")
-
-        nums = [str(x[0]) for x in probabilidade]
-        st.markdown(
-            "**" + "  •  ".join(nums) + "**"
+        scores[numero] = (
+            freq * 3
+            + recencia * 1.5
+            + proximidade * 1.2
         )
 
-        st.markdown("### 🎯 MARCAÇÕES")
-        nums = [str(x[0]) for x in marcacoes]
-        st.markdown(
-            "**" + "  •  ".join(nums) + "**"
+    # Ordenação
+    ordenados = sorted(
+        ROULETTE,
+        key=lambda n: scores[n],
+        reverse=True
+    )
+
+    # =========================
+    # 22 CANDIDATOS
+    # =========================
+
+    candidatos = ordenados[:22]
+
+    # Divide 22 em 3 grupos:
+    # 8 + 7 + 7 = 22
+
+    probabilidade = candidatos[:8]
+    marcacoes = candidatos[8:15]
+    possiveis = candidatos[15:22]
+
+    # =========================
+    # PROBABILIDADE
+    # =========================
+
+    st.markdown("## 🔥 PROBABILIDADE")
+    st.caption("8 maiores pontuações estatísticas")
+
+    for i, numero in enumerate(probabilidade, 1):
+        st.write(
+            f"**#{i} — {numero}**  "
+            f"Score: {scores[numero]:.1f}"
         )
 
-        st.markdown("### 🟢 POSSÍVEIS")
-        nums = [str(x[0]) for x in possiveis]
-        st.markdown(
-            "**" + "  •  ".join(nums) + "**"
+    # =========================
+    # MARCAÇÕES
+    # =========================
+
+    st.markdown("## 🎯 MARCAÇÕES")
+    st.caption("7 candidatos seguintes")
+
+    st.write(
+        " • ".join(str(n) for n in marcacoes)
+    )
+
+    # =========================
+    # POSSÍVEIS
+    # =========================
+
+    st.markdown("## 🔎 POSSÍVEIS")
+    st.caption("7 candidatos complementares")
+
+    st.write(
+        " • ".join(str(n) for n in possiveis)
+    )
+
+    # =========================
+    # RESUMO
+    # =========================
+
+    st.markdown("## 📊 RESUMO DOS 22")
+
+    st.write(
+        "**Probabilidade:** "
+        + ", ".join(map(str, probabilidade))
+    )
+
+    st.write(
+        "**Marcações:** "
+        + ", ".join(map(str, marcacoes))
+    )
+
+    st.write(
+        "**Possíveis:** "
+        + ", ".join(map(str, possiveis))
+    )
+
+    # =========================
+    # VIZINHOS DO ÚLTIMO
+    # =========================
+
+    esquerda = []
+    direita = []
+
+    for i in range(1, 4):
+        esquerda.append(
+            ROULETTE[(pos - i) % len(ROULETTE)]
+        )
+        direita.append(
+            ROULETTE[(pos + i) % len(ROULETTE)]
         )
 
-        # ==========================================
-        # DETALHAMENTO
-        # ==========================================
+    st.markdown("## 🎰 VIZINHOS DO ÚLTIMO")
 
-        with st.expander("📊 Ver frequência dos 22 candidatos"):
+    st.write(
+        f"Último: **{ultimo}**"
+    )
 
-            for numero, score, freq in ranking:
+    st.write(
+        "Esquerda: "
+        + " • ".join(map(str, esquerda))
+    )
 
-                st.write(
-                    f"**{numero}** — {freq} vezes"
-                )
+    st.write(
+        "Direita: "
+        + " • ".join(map(str, direita))
+    )
 
-        st.caption(
-            "⚠️ Os grupos são um ranking estatístico "
-            "dos 110 resultados. Não garantem o próximo giro."
-        )
+    st.divider()
+
+    st.caption(
+        "ROBÔ SGU • Análise estatística • "
+        "Os resultados da roleta são aleatórios."
+    )
