@@ -2,11 +2,80 @@ import streamlit as st
 from collections import Counter
 import math
 
+# ============================================================
+# CONFIGURAÇÃO
+# ============================================================
+
 st.set_page_config(
     page_title="ROBÔ SGU",
     page_icon="🎯",
     layout="centered"
 )
+
+# ============================================================
+# FONTE COMPACTA
+# ============================================================
+
+st.markdown("""
+<style>
+html, body, [class*="css"] {
+    font-size: 12px !important;
+}
+
+p, label, span, div {
+    font-size: 12px !important;
+}
+
+h1 {
+    font-size: 23px !important;
+    margin: 4px 0 8px 0 !important;
+}
+
+h2 {
+    font-size: 17px !important;
+    margin: 6px 0 !important;
+}
+
+h3 {
+    font-size: 14px !important;
+    margin: 5px 0 !important;
+}
+
+.stButton button {
+    font-size: 12px !important;
+    min-height: 34px !important;
+    padding: 2px 6px !important;
+}
+
+.stTextInput input,
+.stNumberInput input,
+textarea {
+    font-size: 12px !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 16px !important;
+}
+
+.candidato {
+    display: inline-block;
+    padding: 3px 6px;
+    margin: 2px;
+    border: 1px solid #777;
+    border-radius: 5px;
+    font-size: 12px !important;
+    font-weight: bold;
+}
+
+.caixa {
+    padding: 6px;
+    border: 1px solid #555;
+    border-radius: 7px;
+    margin: 4px 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 # ============================================================
 # ROLETA EUROPEIA
@@ -18,6 +87,11 @@ RODA = [
     24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
     29, 7, 28, 12, 35, 3, 26
 ]
+
+POSICAO = {
+    numero: i
+    for i, numero in enumerate(RODA)
+}
 
 PRIMOS = {
     2, 3, 5, 7, 11, 13, 17,
@@ -41,18 +115,19 @@ VERMELHOS = {
 if "historico" not in st.session_state:
     st.session_state.historico = []
 
+if "direcao" not in st.session_state:
+    st.session_state.direcao = None
+
 if "analisado" not in st.session_state:
     st.session_state.analisado = False
-
-if "analise_atual" not in st.session_state:
-    st.session_state.analise_atual = None
 
 
 # ============================================================
 # FUNÇÕES
 # ============================================================
 
-def ler_numeros(texto):
+def extrair_numeros(texto):
+
     texto = (
         texto
         .replace(",", " ")
@@ -64,11 +139,12 @@ def ler_numeros(texto):
     numeros = []
 
     for item in texto.split():
-        try:
-            n = int(item)
 
-            if 0 <= n <= 36:
-                numeros.append(n)
+        try:
+            numero = int(item)
+
+            if 0 <= numero <= 36:
+                numeros.append(numero)
 
         except ValueError:
             pass
@@ -76,47 +152,65 @@ def ler_numeros(texto):
     return numeros
 
 
-def vizinhos_22(numero):
-    """
-    Retorna exatamente 22 números:
-    11 de cada lado do último número na roda.
-    O próprio número nunca entra.
-    """
-
-    pos = RODA.index(numero)
-
-    esquerda = [
-        RODA[(pos - i) % len(RODA)]
-        for i in range(1, 12)
-    ]
-
-    direita = [
-        RODA[(pos + i) % len(RODA)]
-        for i in range(1, 12)
-    ]
-
-    return esquerda, direita
-
-
 def distancia_roda(a, b):
-    pa = RODA.index(a)
-    pb = RODA.index(b)
 
-    d = abs(pa - pb)
+    pa = POSICAO[a]
+    pb = POSICAO[b]
 
-    return min(d, 37 - d)
+    distancia = abs(pa - pb)
+
+    return min(
+        distancia,
+        37 - distancia
+    )
 
 
-def atraso(historico, numero):
-    for i, n in enumerate(reversed(historico)):
-        if n == numero:
+def sequencia_direcional(
+    numero,
+    direcao,
+    quantidade=22
+):
+    """
+    Retorna os 22 números seguindo
+    somente a direção selecionada.
+    """
+
+    pos = POSICAO[numero]
+
+    if direcao == "ESQUERDA":
+        passo = -1
+    else:
+        passo = 1
+
+    resultado = []
+
+    for i in range(
+        1,
+        quantidade + 1
+    ):
+
+        resultado.append(
+            RODA[
+                (pos + passo * i) % 37
+            ]
+        )
+
+    return resultado
+
+
+def atraso(
+    numero,
+    historico
+):
+
+    for i, resultado in enumerate(
+        reversed(historico)
+    ):
+
+        if resultado == numero:
             return i
 
     return len(historico)
-
-
-def soma_digitos(numero):
-    return sum(int(x) for x in str(numero))
 
 
 def faixa(numero):
@@ -133,473 +227,515 @@ def faixa(numero):
     return "30-36"
 
 
+def setor(numero):
+
+    voisins = {
+        0, 2, 3, 4, 7, 12,
+        15, 18, 19, 21, 22,
+        25, 26, 28, 29, 32,
+        35
+    }
+
+    tiers = {
+        5, 8, 10, 11, 13,
+        16, 23, 24, 27,
+        30, 33, 34, 36
+    }
+
+    orphelins = {
+        1, 6, 9, 14,
+        17, 20, 31
+    }
+
+    if numero in voisins:
+        return "VOISINS"
+
+    if numero in tiers:
+        return "TIERS"
+
+    if numero in orphelins:
+        return "ORPHELINS"
+
+    return "OUTRO"
+
+
 def cor(numero):
 
     if numero == 0:
-        return "zero"
+        return "ZERO"
 
     if numero in VERMELHOS:
-        return "vermelho"
+        return "VERMELHO"
 
-    return "preto"
+    return "PRETO"
 
 
-# ============================================================
-# ANÁLISE DOS 22
-# ============================================================
+def score_numero(
+    numero,
+    historico,
+    ultimo,
+    direcao
+):
 
-def analisar_22(historico, ultimo):
+    """
+    Calcula uma pontuação estatística.
+    Não representa probabilidade matemática real.
+    """
 
-    janela = historico[-110:]
+    if not historico:
+        return 0.0, []
 
-    esquerda, direita = vizinhos_22(ultimo)
+    janela110 = historico[-110:]
+    janela50 = historico[-50:]
+    janela30 = historico[-30:]
+    janela20 = historico[-20:]
+    janela10 = historico[-10:]
 
-    candidatos = esquerda + direita
+    f110 = Counter(janela110)
+    f50 = Counter(janela50)
+    f30 = Counter(janela30)
+    f20 = Counter(janela20)
+    f10 = Counter(janela10)
 
-    freq = Counter(janela)
-
-    freq_50 = Counter(janela[-50:])
-
-    freq_30 = Counter(janela[-30:])
-
-    freq_20 = Counter(janela[-20:])
-
-    freq_10 = Counter(janela[-10:])
-
-    scores = {}
-
-    detalhes = {}
+    score = 0.0
+    motivos = []
 
     # --------------------------------------------------------
-    # PADRÕES GERAIS
+    # FREQUÊNCIA
     # --------------------------------------------------------
 
-    total = len(janela)
+    score += f110[numero] * 1.0
+    score += f50[numero] * 1.5
+    score += f30[numero] * 2.0
+    score += f20[numero] * 2.5
+    score += f10[numero] * 3.0
 
-    taxa_primos = (
-        sum(n in PRIMOS for n in janela)
-        / total
+    if f30[numero] > 0:
+        motivos.append("frequência recente")
+
+    # --------------------------------------------------------
+    # ATRASO
+    # --------------------------------------------------------
+
+    atraso_numero = atraso(
+        numero,
+        janela110
     )
 
-    taxa_fibonacci = (
-        sum(n in FIBONACCI for n in janela)
-        / total
-    )
+    if atraso_numero >= 8:
 
-    pares = [
-        n for n in janela
-        if n != 0
-    ]
-
-    taxa_pares = (
-        sum(n % 2 == 0 for n in pares)
-        / len(pares)
-        if pares else 0
-    )
-
-    faixas = Counter(
-        faixa(n)
-        for n in janela
-    )
-
-    # ========================================================
-    # CADA UM DOS 22
-    # ========================================================
-
-    for numero in candidatos:
-
-        score = 0.0
-        motivos = []
-
-        # ----------------------------------------------------
-        # 1. FREQUÊNCIA
-        # ----------------------------------------------------
-
-        score += freq[numero] * 1.5
-        score += freq_50[numero] * 2
-        score += freq_30[numero] * 2.5
-        score += freq_20[numero] * 3
-        score += freq_10[numero] * 3.5
-
-        if freq_30[numero]:
-            motivos.append("frequência recente")
-
-        # ----------------------------------------------------
-        # 2. ATRASO
-        # ----------------------------------------------------
-
-        atraso_numero = atraso(
-            janela,
-            numero
+        score += min(
+            atraso_numero * 0.20,
+            7
         )
 
-        if atraso_numero >= 5:
+        motivos.append("atraso")
 
-            score += min(
-                atraso_numero * 0.35,
-                12
-            )
+    # --------------------------------------------------------
+    # DISTÂNCIA DO ÚLTIMO
+    # --------------------------------------------------------
 
-            motivos.append("atraso")
+    distancia = distancia_roda(
+        ultimo,
+        numero
+    )
 
-        # ----------------------------------------------------
-        # 3. DISTÂNCIA DO ÚLTIMO
-        # ----------------------------------------------------
+    score += max(
+        0,
+        10 - distancia
+    ) * 0.6
 
-        distancia = distancia_roda(
-            ultimo,
-            numero
+    if distancia <= 3:
+        motivos.append("proximidade na roda")
+
+    # --------------------------------------------------------
+    # DIREÇÃO
+    # --------------------------------------------------------
+
+    direcional = sequencia_direcional(
+        ultimo,
+        direcao,
+        22
+    )
+
+    if numero in direcional:
+
+        posicao_direcional = (
+            direcional.index(numero) + 1
         )
 
-        # Quanto mais próximo na roda,
-        # maior o peso de vizinhança.
+        # Quanto mais próximo do último,
+        # maior a influência direcional.
         score += max(
             0,
-            12 - distancia
-        ) * 1.3
+            12 - posicao_direcional
+        ) * 0.8
 
-        if distancia <= 3:
-            motivos.append("vizinho próximo")
-
-        # ----------------------------------------------------
-        # 4. VIZINHOS DOS RESULTADOS RECENTES
-        # ----------------------------------------------------
-
-        proximidade = 0
-
-        for resultado in janela[-30:]:
-
-            d = distancia_roda(
-                resultado,
-                numero
-            )
-
-            if d == 1:
-                proximidade += 2
-
-            elif d == 2:
-                proximidade += 1
-
-        score += proximidade * 1.2
-
-        if proximidade:
-            motivos.append("concentração na roda")
-
-        # ----------------------------------------------------
-        # 5. PRIMOS
-        # ----------------------------------------------------
-
-        if numero in PRIMOS:
-
-            freq_primos = sum(
-                n in PRIMOS
-                for n in janela[-30:]
-            ) / min(
-                30,
-                len(janela)
-            )
-
-            diferenca = (
-                freq_primos - taxa_primos
-            )
-
-            score += diferenca * 25
-
-            if diferenca > 0:
-                motivos.append("padrão primo")
-
-        # ----------------------------------------------------
-        # 6. FIBONACCI
-        # ----------------------------------------------------
-
-        if numero in FIBONACCI:
-
-            freq_fib = sum(
-                n in FIBONACCI
-                for n in janela[-30:]
-            ) / min(
-                30,
-                len(janela)
-            )
-
-            diferenca = (
-                freq_fib - taxa_fibonacci
-            )
-
-            score += diferenca * 25
-
-            if diferenca > 0:
-                motivos.append("padrão Fibonacci")
-
-        # ----------------------------------------------------
-        # 7. PAR / ÍMPAR
-        # ----------------------------------------------------
-
-        if numero != 0:
-
-            if numero % 2 == 0:
-
-                recente = sum(
-                    n != 0 and n % 2 == 0
-                    for n in janela[-30:]
-                ) / max(
-                    1,
-                    sum(
-                        n != 0
-                        for n in janela[-30:]
-                    )
-                )
-
-                score += (
-                    recente - taxa_pares
-                ) * 20
-
-                if recente > taxa_pares:
-                    motivos.append("tendência par")
-
-            else:
-
-                recente = sum(
-                    n != 0 and n % 2 != 0
-                    for n in janela[-30:]
-                ) / max(
-                    1,
-                    sum(
-                        n != 0
-                        for n in janela[-30:]
-                    )
-                )
-
-                tendencia_impar = 1 - taxa_pares
-
-                score += (
-                    recente - tendencia_impar
-                ) * 20
-
-                if recente > tendencia_impar:
-                    motivos.append("tendência ímpar")
-
-        # ----------------------------------------------------
-        # 8. MÚLTIPLOS
-        # ----------------------------------------------------
-
-        multiplos = 0
-
-        for divisor in [2, 3, 4, 5, 6, 9]:
-
-            if numero != 0 and numero % divisor == 0:
-
-                multiplos += 1
-
-        score += multiplos * 0.8
-
-        if multiplos >= 2:
-            motivos.append("divisibilidade")
-
-        # ----------------------------------------------------
-        # 9. SOMA DOS ALGARISMOS
-        # ----------------------------------------------------
-
-        soma = soma_digitos(numero)
-
-        ocorrencias_soma = sum(
-            soma_digitos(n) == soma
-            for n in janela[-30:]
+        motivos.append(
+            f"posição {posicao_direcional} na direção"
         )
 
-        if ocorrencias_soma >= 3:
+    # --------------------------------------------------------
+    # SEQUÊNCIA DIRECIONAL NO HISTÓRICO
+    # --------------------------------------------------------
 
-            score += 2
+    if len(janela110) >= 2:
 
-            motivos.append(
-                "padrão de soma"
-            )
-
-        # ----------------------------------------------------
-        # 10. FAIXA
-        # ----------------------------------------------------
-
-        f = faixa(numero)
-
-        proporcao_total = (
-            faixas[f] / total
-        )
-
-        proporcao_recente = (
-            sum(
-                faixa(n) == f
-                for n in janela[-30:]
-            )
-            / min(30, len(janela))
-        )
-
-        if proporcao_recente > proporcao_total:
-
-            score += (
-                proporcao_recente
-                - proporcao_total
-            ) * 30
-
-            motivos.append(
-                "faixa recente"
-            )
-
-        # ----------------------------------------------------
-        # 11. RELAÇÃO COM O ÚLTIMO
-        # ----------------------------------------------------
-
-        diferenca = abs(
-            numero - ultimo
-        )
-
-        if diferenca in {
-            1, 2, 3, 4, 5,
-            7, 8, 9, 10,
-            12, 13, 17, 18
-        }:
-
-            score += 2
-
-            motivos.append(
-                "diferença numérica"
-            )
-
-        soma_com_ultimo = (
-            numero + ultimo
-        )
-
-        if soma_com_ultimo % 3 == 0:
-            score += 1
-
-        if soma_com_ultimo % 4 == 0:
-            score += 1
-
-        if soma_com_ultimo % 5 == 0:
-            score += 1
-
-        # ----------------------------------------------------
-        # 12. COR
-        # ----------------------------------------------------
-
-        cor_numero = cor(numero)
-
-        ultimas_10_cores = [
-            cor(n)
-            for n in janela[-10:]
-        ]
-
-        if ultimas_10_cores.count(
-            cor_numero
-        ) >= 6:
-
-            score += 1.5
-
-            motivos.append(
-                "padrão de cor"
-            )
-
-        # ----------------------------------------------------
-        # 13. REPETIÇÃO DE DISTÂNCIAS
-        # ----------------------------------------------------
-
-        distancias = []
+        acertos_direcionais = 0
 
         for i in range(
             1,
-            len(janela)
+            len(janela110)
         ):
 
-            distancias.append(
-                distancia_roda(
-                    janela[i - 1],
-                    janela[i]
-                )
+            anterior = janela110[i - 1]
+            atual = janela110[i]
+
+            seq = sequencia_direcional(
+                anterior,
+                direcao,
+                22
             )
 
-        if distancias:
+            if atual in seq:
 
-            recentes = distancias[-20:]
-
-            distancia_atual = distancia
-
-            quantidade = sum(
-                abs(
-                    d - distancia_atual
-                ) <= 1
-                for d in recentes
-            )
-
-            score += quantidade * 0.35
-
-            if quantidade >= 3:
-
-                motivos.append(
-                    "padrão de distância"
+                distancia_seq = (
+                    seq.index(atual) + 1
                 )
 
-        # ----------------------------------------------------
-        # RESULTADO
-        # ----------------------------------------------------
+                acertos_direcionais += max(
+                    0,
+                    12 - distancia_seq
+                )
 
-        scores[numero] = round(
-            score,
-            2
+        # Normalização
+        score += (
+            acertos_direcionais / 110
+        ) * 5
+
+        if acertos_direcionais > 0:
+            motivos.append(
+                "histórico direcional"
+            )
+
+    # --------------------------------------------------------
+    # SETOR
+    # --------------------------------------------------------
+
+    setor_ultimo = setor(ultimo)
+    setor_numero = setor(numero)
+
+    if setor_numero == setor_ultimo:
+
+        score += 1.5
+
+        motivos.append(
+            "mesmo setor"
         )
 
-        detalhes[numero] = {
-            "score": round(score, 2),
-            "frequencia": freq[numero],
-            "freq_50": freq_50[numero],
-            "freq_30": freq_30[numero],
-            "freq_20": freq_20[numero],
-            "freq_10": freq_10[numero],
-            "atraso": atraso_numero,
-            "distancia": distancia,
-            "motivos": motivos
-        }
+    # --------------------------------------------------------
+    # PRIMOS
+    # --------------------------------------------------------
+
+    if numero in PRIMOS:
+
+        proporcao = (
+            sum(
+                n in PRIMOS
+                for n in janela30
+            )
+            / len(janela30)
+        )
+
+        score += proporcao * 2
+
+    # --------------------------------------------------------
+    # FIBONACCI
+    # --------------------------------------------------------
+
+    if numero in FIBONACCI:
+
+        score += 1.5
+
+    # --------------------------------------------------------
+    # MÚLTIPLOS
+    # --------------------------------------------------------
+
+    quantidade_multiplos = sum(
+        numero != 0 and numero % divisor == 0
+        for divisor in (
+            2, 3, 4, 5, 6, 9
+        )
+    )
+
+    score += (
+        quantidade_multiplos * 0.4
+    )
+
+    # --------------------------------------------------------
+    # PAR / ÍMPAR
+    # --------------------------------------------------------
+
+    if numero != 0:
+
+        pares = sum(
+            n != 0 and n % 2 == 0
+            for n in janela30
+        )
+
+        impares = sum(
+            n != 0 and n % 2 != 0
+            for n in janela30
+        )
+
+        if pares > impares:
+
+            if numero % 2 == 0:
+                score += 1
+            else:
+                score -= 0.5
+
+        elif impares > pares:
+
+            if numero % 2 != 0:
+                score += 1
+            else:
+                score -= 0.5
+
+    # --------------------------------------------------------
+    # COR
+    # --------------------------------------------------------
+
+    if numero != 0:
+
+        vermelhos = sum(
+            n in VERMELHOS
+            for n in janela30
+        )
+
+        pretos = sum(
+            n != 0 and n not in VERMELHOS
+            for n in janela30
+        )
+
+        if vermelhos > pretos:
+            if numero not in VERMELHOS:
+                score += 0.5
+
+        elif pretos > vermelhos:
+            if numero in VERMELHOS:
+                score += 0.5
+
+    # --------------------------------------------------------
+    # FAIXA
+    # --------------------------------------------------------
+
+    faixa_numero = faixa(numero)
+
+    freq_faixa_total = sum(
+        faixa(n) == faixa_numero
+        for n in janela110
+    )
+
+    freq_faixa_recente = sum(
+        faixa(n) == faixa_numero
+        for n in janela30
+    )
+
+    esperado = (
+        freq_faixa_total
+        / len(janela110)
+        * len(janela30)
+    )
+
+    if freq_faixa_recente > esperado:
+
+        score += 1.5
+
+        motivos.append(
+            "faixa recente"
+        )
+
+    # --------------------------------------------------------
+    # RELAÇÃO NUMÉRICA COM O ÚLTIMO
+    # --------------------------------------------------------
+
+    diferenca = abs(
+        numero - ultimo
+    )
+
+    if diferenca in {
+        1, 2, 3, 4, 5,
+        7, 8, 9, 10,
+        12, 13, 17, 18
+    }:
+
+        score += 1
+
+        motivos.append(
+            "relação numérica"
+        )
+
+    # --------------------------------------------------------
+    # DISTÂNCIAS DOS ÚLTIMOS RESULTADOS
+    # --------------------------------------------------------
+
+    distancias = [
+        distancia_roda(
+            numero,
+            n
+        )
+        for n in janela10
+    ]
+
+    if distancias:
+
+        media = (
+            sum(distancias)
+            / len(distancias)
+        )
+
+        if media <= 8:
+
+            score += 1
+
+            motivos.append(
+                "concentração recente"
+            )
+
+    return round(
+        score,
+        3
+    ), motivos
+
+
+def analisar_22(
+    historico,
+    direcao
+):
+
+    if not historico:
+        return []
+
+    ultimo = historico[-1]
 
     # ========================================================
-    # RANKING DOS 22
+    # AQUI ESTÁ O CRITÉRIO PRINCIPAL:
+    # EXATAMENTE 22 POSIÇÕES A PARTIR DA DIREÇÃO ESCOLHIDA
     # ========================================================
 
-    ranking = sorted(
+    candidatos = sequencia_direcional(
+        ultimo,
+        direcao,
+        22
+    )
+
+    resultado = []
+
+    for posicao, numero in enumerate(
         candidatos,
-        key=lambda n: scores[n],
+        start=1
+    ):
+
+        score, motivos = score_numero(
+            numero,
+            historico,
+            ultimo,
+            direcao
+        )
+
+        resultado.append({
+            "numero": numero,
+            "posicao": posicao,
+            "score": score,
+            "motivos": motivos,
+            "frequencia": Counter(
+                historico[-110:]
+            )[numero],
+            "atraso": atraso(
+                numero,
+                historico[-110:]
+            ),
+            "setor": setor(numero)
+        })
+
+    # ========================================================
+    # RANKING
+    # ========================================================
+
+    resultado.sort(
+        key=lambda x: x["score"],
         reverse=True
     )
 
-    return {
-        "ultimo": ultimo,
-        "esquerda": esquerda,
-        "direita": direita,
-        "ranking": ranking,
-        "scores": scores,
-        "detalhes": detalhes
-    }
+    return resultado
 
 
 # ============================================================
-# INTERFACE
+# TÍTULO
 # ============================================================
 
 st.title("🤖 ROBÔ SGU")
 
 st.caption(
-    "Análise matemática adaptativa da roleta"
+    "Análise matemática + sequência direcional da roda"
 )
 
 # ============================================================
-# 110 INICIAIS
+# DIREÇÃO — ESCOLHE UMA VEZ
 # ============================================================
 
-st.subheader(
-    "📥 110 RESULTADOS INICIAIS"
-)
+st.subheader("🧭 Direção da operação")
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    if st.button(
+        "⬅️ ESQUERDA",
+        use_container_width=True
+    ):
+
+        st.session_state.direcao = "ESQUERDA"
+
+with col2:
+
+    if st.button(
+        "➡️ DIREITA",
+        use_container_width=True
+    ):
+
+        st.session_state.direcao = "DIREITA"
+
+
+if st.session_state.direcao:
+
+    st.success(
+        f"Direção selecionada: "
+        f"**{st.session_state.direcao}**"
+    )
+
+    st.caption(
+        "A direção permanece automática até você escolher a outra."
+    )
+
+else:
+
+    st.warning(
+        "Selecione ESQUERDA ou DIREITA para começar."
+    )
+
+
+# ============================================================
+# 110 RESULTADOS
+# ============================================================
+
+st.subheader("📥 110 resultados iniciais")
 
 texto = st.text_area(
-    "Cole os últimos 110 resultados",
-    height=140,
-    placeholder="Exemplo: 10 16 36 4 35..."
+    "Cole os 110 resultados",
+    height=110,
+    placeholder="Ex.: 10 16 36 4 35..."
 )
 
 if st.button(
@@ -607,13 +743,21 @@ if st.button(
     use_container_width=True
 ):
 
-    numeros = ler_numeros(texto)
+    numeros = extrair_numeros(
+        texto
+    )
 
     if len(numeros) != 110:
 
         st.error(
-            f"Foram encontrados {len(numeros)} números. "
-            "Digite exatamente 110 resultados."
+            f"Foram encontrados {len(numeros)} resultados. "
+            "É necessário exatamente 110."
+        )
+
+    elif not st.session_state.direcao:
+
+        st.warning(
+            "Escolha primeiro ESQUERDA ou DIREITA."
         )
 
     else:
@@ -624,17 +768,8 @@ if st.button(
 
         st.session_state.analisado = True
 
-        ultimo = numeros[-1]
-
-        st.session_state.analise_atual = (
-            analisar_22(
-                st.session_state.historico,
-                ultimo
-            )
-        )
-
         st.success(
-            "✅ Análise inicial concluída."
+            "✅ Base de 110 resultados carregada."
         )
 
         st.rerun()
@@ -644,139 +779,167 @@ if st.button(
 # NOVO RESULTADO
 # ============================================================
 
-st.divider()
+if st.session_state.analisado:
 
-st.subheader(
-    "🎰 NOVO RESULTADO"
-)
+    st.divider()
 
-novo_numero = st.number_input(
-    "Número que acabou de sair",
-    min_value=0,
-    max_value=36,
-    value=0,
-    step=1,
-    key="novo_resultado"
-)
+    st.subheader("🎰 Novo resultado")
 
-if st.button(
-    "➕ ADICIONAR RESULTADO",
-    use_container_width=True
-):
+    col1, col2 = st.columns([2, 1])
 
-    if not st.session_state.analisado:
+    with col1:
 
-        st.warning(
-            "Primeiro faça a análise dos 110 resultados."
+        novo = st.number_input(
+            "Número que acabou de sair",
+            min_value=0,
+            max_value=36,
+            value=0,
+            step=1
         )
 
-    else:
+    with col2:
 
-        numero = int(novo_numero)
+        adicionar = st.button(
+            "➕ ADICIONAR",
+            use_container_width=True
+        )
+
+    if adicionar:
 
         st.session_state.historico.append(
-            numero
-        )
-
-        st.session_state.analise_atual = (
-            analisar_22(
-                st.session_state.historico,
-                numero
-            )
+            int(novo)
         )
 
         st.rerun()
 
 
 # ============================================================
-# RESULTADO DA ANÁLISE
+# ANÁLISE ATUAL
 # ============================================================
 
-if st.session_state.analise_atual:
+if (
+    st.session_state.analisado
+    and st.session_state.historico
+    and st.session_state.direcao
+):
 
-    analise = st.session_state.analise_atual
+    historico = (
+        st.session_state.historico
+    )
+
+    ultimo = historico[-1]
+
+    analise = analisar_22(
+        historico,
+        st.session_state.direcao
+    )
 
     st.divider()
 
     st.subheader(
-        f"🧮 ANÁLISE MATEMÁTICA — ÚLTIMO: {analise['ultimo']}"
+        f"🧮 Análise — último: {ultimo}"
     )
 
     # ========================================================
-    # 22 POSSIBILIDADES REAIS DA RODA
+    # STATUS
     # ========================================================
 
-    st.markdown(
-        "### 🎯 22 POSSIBILIDADES"
-    )
+    col1, col2, col3 = st.columns(3)
 
-    st.info(
-        " • ".join(
-            f"{n:02d}"
-            for n in analise["ranking"]
+    with col1:
+        st.metric(
+            "Último",
+            ultimo
         )
+
+    with col2:
+        st.metric(
+            "Histórico",
+            len(historico)
+        )
+
+    with col3:
+        st.metric(
+            "Direção",
+            st.session_state.direcao
+        )
+
+    # ========================================================
+    # 22 CANDIDATOS
+    # ========================================================
+
+    st.markdown(
+        "### 🎯 22 candidatos"
+    )
+
+    html = ""
+
+    for item in analise:
+
+        html += (
+            '<span class="candidato">'
+            f'{item["numero"]:02d}'
+            '</span>'
+        )
+
+    st.markdown(
+        html,
+        unsafe_allow_html=True
     )
 
     # ========================================================
-    # GRUPOS
+    # 8 + 7 + 7
     # ========================================================
 
-    ranking = analise["ranking"]
-
     st.markdown(
-        "### 🔥 PROBABILIDADE — 8"
+        "### 🔥 Probabilidade — 8"
     )
 
     st.write(
         " • ".join(
-            f"{n:02d}"
-            for n in ranking[:8]
+            f'{x["numero"]:02d}'
+            for x in analise[:8]
         )
     )
 
     st.markdown(
-        "### 🎯 MARCAÇÕES — 7"
+        "### 🎯 Marcações — 7"
     )
 
     st.write(
         " • ".join(
-            f"{n:02d}"
-            for n in ranking[8:15]
+            f'{x["numero"]:02d}'
+            for x in analise[8:15]
         )
     )
 
     st.markdown(
-        "### 🔎 POSSÍVEIS — 7"
+        "### 🔎 Possíveis — 7"
     )
 
     st.write(
         " • ".join(
-            f"{n:02d}"
-            for n in ranking[15:22]
+            f'{x["numero"]:02d}'
+            for x in analise[15:22]
         )
     )
 
     # ========================================================
-    # POSIÇÃO NA RODA
+    # ORDEM DIRECIONAL
     # ========================================================
 
     with st.expander(
-        "🎰 Ver os 11 números de cada lado"
+        f"🧭 Ver sequência na direção {st.session_state.direcao}"
     ):
 
         st.write(
-            "⬅️ "
-            + " • ".join(
-                f"{n:02d}"
-                for n in analise["esquerda"]
-            )
-        )
-
-        st.write(
-            "➡️ "
-            + " • ".join(
-                f"{n:02d}"
-                for n in analise["direita"]
+            " → ".join(
+                f'{x:02d}'
+                for x in sequencia_direcional(
+                    ultimo,
+                    st.session_state.direcao,
+                    22
+                )
             )
         )
 
@@ -788,38 +951,30 @@ if st.session_state.analise_atual:
         "🧠 Ver análise matemática dos 22"
     ):
 
-        for pos, numero in enumerate(
-            ranking,
+        for i, item in enumerate(
+            analise,
             start=1
         ):
 
-            d = analise["detalhes"][numero]
-
-            motivos = d["motivos"]
+            motivos = item["motivos"]
 
             if motivos:
                 texto_motivos = ", ".join(
                     motivos
                 )
             else:
-                texto_motivos = (
-                    "sem sinal específico"
-                )
+                texto_motivos = "sem sinal específico"
 
             st.write(
-                f"**{pos:02d}. {numero:02d}** "
-                f"— força {d['score']:.2f} "
-                f"— {texto_motivos}"
+                f"**{i:02d}. {item['numero']:02d}** "
+                f"• força {item['score']:.2f} "
+                f"• posição direcional {item['posicao']} "
+                f"• frequência {item['frequencia']} "
+                f"• atraso {item['atraso']}"
             )
 
             st.caption(
-                f"Frequência 110: {d['frequencia']} | "
-                f"50: {d['freq_50']} | "
-                f"30: {d['freq_30']} | "
-                f"20: {d['freq_20']} | "
-                f"10: {d['freq_10']} | "
-                f"Atraso: {d['atraso']} | "
-                f"Distância: {d['distancia']}"
+                texto_motivos
             )
 
     # ========================================================
@@ -829,43 +984,47 @@ if st.session_state.analise_atual:
     st.divider()
 
     st.subheader(
-        "📜 HISTÓRICO"
+        f"📜 Histórico ({len(historico)})"
     )
 
-    historico = st.session_state.historico
-
-    st.caption(
-        f"Histórico acumulado: "
-        f"{len(historico)} resultados"
-    )
-
-    # Últimos 110 usados na análise
     janela = historico[-110:]
-
-    st.caption(
-        f"Janela matemática atual: "
-        f"{len(janela)} resultados"
-    )
 
     for i in range(
         0,
         len(janela),
-        10
+        15
     ):
 
-        linha = janela[i:i + 10]
+        linha = janela[i:i + 15]
 
         st.code(
             " ".join(
                 f"{n:02d}"
                 for n in linha
-            )
+            ),
+            language=None
         )
+
+    st.caption(
+        "A análise utiliza os 110 resultados mais recentes. "
+        "O histórico total continua acumulado."
+    )
+
+else:
+
+    st.info(
+        "Selecione a direção e carregue os 110 resultados."
+    )
+
+
+# ============================================================
+# AVISO
+# ============================================================
 
 st.divider()
 
 st.caption(
-    "O ranking é estatístico. "
-    "Em uma roleta justa, cada número individual "
-    "continua tendo a mesma probabilidade matemática."
+    "⚠️ A direção e os padrões matemáticos são usados "
+    "como critérios estatísticos. Eles não garantem "
+    "o resultado de uma roleta justa."
 )
