@@ -8,513 +8,459 @@ st.set_page_config(
     layout="wide"
 )
 
-MAX_HISTORY = 200
-NUMBERS = list(range(37))
-
-WHEEL = [
-    0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13,
-    36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14,
-    31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
-]
-
-POS = {n: i for i, n in enumerate(WHEEL)}
-
-RED = {
-    1, 3, 5, 7, 9, 12, 14, 16, 18,
-    19, 21, 23, 25, 27, 30, 32, 34, 36
-}
-
-PRIMES = {
-    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31
-}
-
-FIB = {
-    0, 1, 2, 3, 5, 8, 13, 21, 34
-}
-
-SQUARES = {
-    0, 1, 4, 9, 16, 25, 36
-}
-
-
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-
 # ============================================================
-# INTERFACE
+# ESTILO
 # ============================================================
 
 st.markdown("""
 <style>
-
 .stApp {
-    background: #071018;
-    color: #edf3f7;
+    background: linear-gradient(135deg,#061018 0%,#07131d 55%,#0b0916 100%);
+    color: #e8eef5;
 }
 
 .block-container {
-    max-width: 1200px;
-    padding: 24px 18px 40px;
-}
-
-header[data-testid="stHeader"] {
-    background: transparent;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 4px;
-}
-
-.brand-icon {
-    font-size: 42px;
-}
-
-.brand-title {
-    font-size: 32px;
-    font-weight: 800;
-    line-height: 1;
-}
-
-.brand-title span {
-    color: #19d95b;
-}
-
-.subtitle {
-    color: #91a3af;
-    font-size: 13px;
-    margin: 4px 0 18px 55px;
+    max-width: 1450px;
+    padding-top: 1.2rem;
+    padding-bottom: 2rem;
 }
 
 .card {
-    background: #0b1721;
-    border: 1px solid #203544;
+    background: rgba(9,23,34,.88);
+    border: 1px solid rgba(130,170,200,.22);
     border-radius: 14px;
     padding: 16px;
-    min-height: 105px;
-}
-
-.card-title {
-    color: #9aaab5;
-    font-size: 11px;
-    text-transform: uppercase;
-}
-
-.card-value {
-    font-size: 30px;
-    font-weight: 800;
-    margin-top: 6px;
-}
-
-.blue {
-    color: #159cff;
-}
-
-.green {
-    color: #19d95b;
-}
-
-.purple {
-    color: #a86cff;
-}
-
-.cyan {
-    color: #19d7e8;
-}
-
-.orange {
-    color: #ffb52e;
-}
-
-.section {
-    font-size: 19px;
-    font-weight: 800;
-    margin: 22px 0 10px;
-}
-
-.pick {
-    background: #0b1721;
-    border-radius: 14px;
-    padding: 15px;
-    min-height: 190px;
-}
-
-.pick-high {
-    border: 1px solid #158f4b;
-}
-
-.pick-possible {
-    border: 1px solid #087dce;
-}
-
-.pick-mark {
-    border: 1px solid #c98213;
-}
-
-.pick-title {
-    font-size: 13px;
-    font-weight: 800;
     margin-bottom: 12px;
 }
 
-.high-text {
-    color: #19d95b;
+.small {
+    color: #9eacba;
+    font-size: 13px;
 }
 
-.possible-text {
-    color: #159cff;
-}
-
-.mark-text {
-    color: #ffb52e;
-}
-
-.ball {
-    display: inline-flex;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    align-items: center;
-    justify-content: center;
-    margin: 4px 3px;
+.big {
+    font-size: 32px;
     font-weight: 800;
-    border: 1px solid #60707c;
+    line-height: 1.1;
 }
 
-.red-ball {
-    background: #d92532;
+.green { color: #20d85a; }
+.blue { color: #2196f3; }
+.purple { color: #a855f7; }
+.orange { color: #ff9d00; }
+.cyan { color: #16c7df; }
+.red { color: #ef4444; }
+
+.choice {
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 190px;
 }
 
-.black-ball {
-    background: #05080b;
+.choice h3 {
+    margin: 0 0 14px 0;
+    font-size: 17px;
 }
 
-.zero-ball {
-    background: #0cae49;
+.choice.high {
+    border-color: rgba(32,216,90,.5);
+}
+
+.choice.possible {
+    border-color: rgba(33,150,243,.5);
+}
+
+.choice.mark {
+    border-color: rgba(255,157,0,.5);
+}
+
+.chip {
+    display: inline-block;
+    min-width: 36px;
+    text-align: center;
+    padding: 8px 7px;
+    margin: 4px;
+    border-radius: 50%;
+    background: #05090d;
+    border: 1px solid #52606d;
+    font-weight: 700;
+}
+
+.chip.red {
+    background: #d92735;
+    border-color: #f34a55;
+}
+
+.chip.green {
+    background: #159447;
+    border-color: #31c96a;
 }
 
 .note {
     margin-top: 14px;
-    padding: 8px;
-    border-radius: 8px;
-    background: #071018;
-    color: #93a5b1;
-    font-size: 11px;
-}
-
-.panel {
-    background: #0b1721;
-    border: 1px solid #203544;
-    border-radius: 14px;
-    padding: 15px;
-}
-
-.panel-title {
-    color: #cbd5dc;
+    padding: 9px 10px;
+    border-top: 1px solid rgba(255,255,255,.08);
     font-size: 12px;
-    text-transform: uppercase;
-    font-weight: 700;
-    margin-bottom: 10px;
+    color: #aebbc7;
 }
 
-.row {
-    display: flex;
-    justify-content: space-between;
-    padding: 7px 0;
-    border-bottom: 1px solid #162a37;
-    font-size: 13px;
+div[data-testid="stMetric"] {
+    background: rgba(9,23,34,.88);
+    border: 1px solid rgba(130,170,200,.22);
+    padding: 12px;
+    border-radius: 14px;
 }
 
-.row:last-child {
-    border-bottom: 0;
+button[kind="primary"] {
+    background: #18a84a !important;
 }
-
-.stButton > button {
-    border-radius: 10px;
-    min-height: 42px;
-    font-weight: 700;
-}
-
-div[data-testid="stTextArea"] textarea {
-    border-radius: 12px;
-}
-
-div[data-testid="stNumberInput"] input {
-    border-radius: 10px;
-}
-
-.footer {
-    text-align: center;
-    color: #6f818e;
-    font-size: 11px;
-    margin-top: 22px;
-}
-
-@media (max-width: 700px) {
-
-    .brand-title {
-        font-size: 27px;
-    }
-
-    .brand-icon {
-        font-size: 35px;
-    }
-
-    .subtitle {
-        margin-left: 48px;
-    }
-
-    .card-value {
-        font-size: 25px;
-    }
-
-}
-
 </style>
 """, unsafe_allow_html=True)
+
+
+# ============================================================
+# RODA EUROPEIA
+# ============================================================
+
+RODA = [
+    0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
+    6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
+    24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
+    29, 7, 28, 12, 35, 3, 26
+]
+
+POS = {n: i for i, n in enumerate(RODA)}
+
+VERMELHOS = {
+    1, 3, 5, 7, 9,
+    12, 14, 16, 18,
+    19, 21, 23, 25,
+    27, 30, 32, 34, 36
+}
+
+PRIMOS = {
+    2, 3, 5, 7, 11,
+    13, 17, 19, 23,
+    29, 31
+}
+
+FIBONACCI = {
+    0, 1, 2, 3, 5,
+    8, 13, 21, 34
+}
+
+QUADRADOS = {
+    0, 1, 4, 9, 16,
+    25, 36
+}
+
+MAX_HISTORICO = 200
+
+
+# ============================================================
+# MEMÓRIA DO STREAMLIT
+# ============================================================
+
+if "historico" not in st.session_state:
+    st.session_state.historico = []
 
 
 # ============================================================
 # FUNÇÕES
 # ============================================================
 
-def parse_numbers(text):
-    text = (
-        text
-        .replace(",", " ")
-        .replace(";", " ")
-        .replace("\n", " ")
-        .replace("\t", " ")
-    )
+def extrair_numeros(texto):
 
-    result = []
+    for caractere in [",", ";", "\n", "\t", "|"]:
+        texto = texto.replace(caractere, " ")
 
-    for part in text.split():
+    numeros = []
+
+    for item in texto.split():
 
         try:
-            n = int(part)
+            numero = int(item)
 
-            if 0 <= n <= 36:
-                result.append(n)
+            if 0 <= numero <= 36:
+                numeros.append(numero)
 
         except ValueError:
-            continue
+            pass
 
-    return result[-MAX_HISTORY:]
+    return numeros
 
 
-def color_name(n):
+def cor(numero):
 
-    if n == 0:
+    if numero == 0:
         return "Verde"
 
-    if n in RED:
+    if numero in VERMELHOS:
         return "Vermelho"
 
     return "Preto"
 
 
-def wheel_distance(a, b):
+def paridade(numero):
 
-    d = abs(POS[a] - POS[b])
+    if numero == 0:
+        return "Zero"
 
-    return min(d, 37 - d)
+    if numero % 2 == 0:
+        return "Par"
+
+    return "Ímpar"
 
 
-def wheel_mirror(n):
+def duzia(numero):
 
-    return WHEEL[(POS[n] + 18) % 37]
+    if numero == 0:
+        return "Zero"
+
+    if numero <= 12:
+        return "1ª"
+
+    if numero <= 24:
+        return "2ª"
+
+    return "3ª"
 
 
-def numeric_mirror(n):
+def coluna(numero):
 
-    if n == 0:
+    if numero == 0:
+        return "Zero"
+
+    resto = numero % 3
+
+    if resto == 1:
+        return "1ª"
+
+    if resto == 2:
+        return "2ª"
+
+    return "3ª"
+
+
+def distancia_roda(a, b):
+
+    distancia = abs(POS[a] - POS[b])
+
+    return min(distancia, 37 - distancia)
+
+
+def espelho_roda(numero):
+
+    return RODA[(POS[numero] + 18) % 37]
+
+
+def espelho_numerico(numero):
+
+    if numero == 0:
         return 0
 
-    return 37 - n
+    return 37 - numero
 
 
-def delay(n, data):
+def atraso(numero, dados):
 
-    for i, value in enumerate(reversed(data)):
+    for i, valor in enumerate(reversed(dados)):
 
-        if value == n:
+        if valor == numero:
             return i
 
-    return len(data)
+    return len(dados)
 
 
-def z_score(n, data):
+def criar_transicoes(dados):
 
-    if not data:
+    matriz = defaultdict(Counter)
+
+    for atual, proximo in zip(dados[:-1], dados[1:]):
+        matriz[atual][proximo] += 1
+
+    return matriz
+
+
+def forca_transicao(numero, ultimo, matriz):
+
+    total = sum(matriz[ultimo].values())
+
+    if total == 0:
+        return 0
+
+    return matriz[ultimo][numero] / total
+
+
+def zscore(numero, dados):
+
+    if not dados:
         return 0.0
 
-    counts = Counter(data)
+    contador = Counter(dados)
 
-    values = [
-        counts[x]
-        for x in NUMBERS
+    valores = [
+        contador[n]
+        for n in range(37)
     ]
 
-    sd = pstdev(values)
+    desvio = pstdev(valores)
 
-    if sd == 0:
+    if desvio == 0:
         return 0.0
 
     return (
-        counts[n] - mean(values)
-    ) / sd
-
-
-def transition_matrix(data):
-
-    matrix = defaultdict(Counter)
-
-    for a, b in zip(
-        data[:-1],
-        data[1:]
-    ):
-
-        matrix[a][b] += 1
-
-    return matrix
+        contador[numero] - mean(valores)
+    ) / desvio
 
 
 # ============================================================
-# SCORE
+# FREQUÊNCIA
 # ============================================================
 
-def number_score(n, data, direction):
+def score_frequencia(numero, dados):
 
-    if not data:
-        return 0.0
-
-    last = data[-1]
+    pesos = [
+        (10, 2.5),
+        (20, 2.0),
+        (37, 1.6),
+        (50, 1.2),
+        (100, 0.9),
+        (150, 0.6),
+        (200, 0.4)
+    ]
 
     score = 0.0
 
-    matrix = transition_matrix(data)
+    for janela, peso in pesos:
 
-    windows = {
-        10: 2.4,
-        20: 1.9,
-        37: 1.5,
-        50: 1.2,
-        100: 0.9,
-        150: 0.6,
-        200: 0.45
-    }
+        parte = dados[-janela:]
+
+        if not parte:
+            continue
+
+        frequencia = parte.count(numero) / len(parte)
+
+        score += frequencia * 100 * peso
+
+    return score
+
+
+# ============================================================
+# SCORE PRINCIPAL
+# ============================================================
+
+def calcular_score(numero, dados, matriz):
+
+    if not dados:
+        return 0.0
+
+    ultimo = dados[-1]
+
+    score = 0.0
 
     # Frequência
-    for size, weight in windows.items():
-
-        part = data[-size:]
-
-        if part:
-
-            score += (
-                part.count(n)
-                / len(part)
-                * 100
-                * weight
-            )
+    score += score_frequencia(numero, dados)
 
     # Atraso
     score += min(
-        delay(n, data) * 0.055,
-        2.5
+        atraso(numero, dados) * 0.06,
+        3.0
     )
 
     # Z-score
+    score += zscore(numero, dados) * 0.7
+
+    # Transição / puxa
     score += (
-        z_score(n, data)
-        * 0.55
+        forca_transicao(
+            numero,
+            ultimo,
+            matriz
+        ) * 10
     )
 
-    # Vizinhança na roda
-    for previous in data[-35:]:
+    # Distância na roda
+    ultimos = dados[-10:]
 
-        d = wheel_distance(
-            n,
-            previous
+    if ultimos:
+
+        media_distancia = mean(
+            distancia_roda(numero, x)
+            for x in ultimos
         )
 
-        if d == 1:
+        score += max(
+            0,
+            3 - media_distancia * 0.18
+        )
+
+    # Vizinhança da roda
+    for resultado in dados[-30:]:
+
+        distancia = distancia_roda(
+            numero,
+            resultado
+        )
+
+        if distancia == 1:
             score += 0.55
 
-        elif d == 2:
-            score += 0.28
+        elif distancia == 2:
+            score += 0.25
 
-        elif d == 3:
+        elif distancia == 3:
             score += 0.08
 
-    # Transições / "puxa"
-    total = sum(
-        matrix[last].values()
-    )
+    # Primos
+    if numero in PRIMOS:
+        score += 0.35
 
-    if total:
-
-        score += (
-            matrix[last][n]
-            / total
-            * 12
-        )
-
-    # Direção
-    if direction == "Direita":
-
-        delta = (
-            POS[n]
-            - POS[last]
-        ) % 37
-
-    else:
-
-        delta = (
-            POS[last]
-            - POS[n]
-        ) % 37
-
-    if delta == 1:
-        score += 1.6
-
-    elif delta == 2:
-        score += 1.0
-
-    elif delta == 3:
-        score += 0.5
-
-    # Espelhos
-    if wheel_mirror(n) in data[-50:]:
-        score += 0.55
-
-    if numeric_mirror(n) in data[-50:]:
+    # Fibonacci
+    if numero in FIBONACCI:
         score += 0.25
 
-    # Setor da roda
-    sector = POS[n] // 5
+    # Quadrados
+    if numero in QUADRADOS:
+        score += 0.15
 
+    # Espelho da roda
     score += (
-        sum(
-            POS[x] // 5 == sector
-            for x in data[-50:]
-        )
-        / 35
+        dados.count(
+            espelho_roda(numero)
+        ) * 0.10
     )
 
-    # Matemática
-    if n in PRIMES:
-        score += 0.25
+    # Espelho numérico
+    score += (
+        dados.count(
+            espelho_numerico(numero)
+        ) * 0.06
+    )
 
-    if n in FIB:
-        score += 0.20
+    # Cor
+    if cor(numero) != "Verde":
 
-    if n in SQUARES:
-        score += 0.12
+        score += sum(
+            1
+            for x in dados[-30:]
+            if cor(x) == cor(numero)
+        ) * 0.025
+
+    # Dúzia
+    score += sum(
+        1
+        for x in dados[-30:]
+        if duzia(x) == duzia(numero)
+    ) * 0.02
+
+    # Coluna
+    score += sum(
+        1
+        for x in dados[-30:]
+        if coluna(x) == coluna(numero)
+    ) * 0.02
 
     return score
 
@@ -523,756 +469,762 @@ def number_score(n, data, direction):
 # RANKING
 # ============================================================
 
-def ranking(data, direction):
+def criar_ranking(dados):
 
-    values = []
+    matriz = criar_transicoes(dados)
 
-    for n in NUMBERS:
+    ranking = []
 
-        values.append({
-            "number": n,
-            "score": number_score(
-                n,
-                data,
-                direction
+    for numero in range(37):
+
+        ranking.append({
+            "numero": numero,
+            "score": calcular_score(
+                numero,
+                dados,
+                matriz
             )
         })
 
-    values.sort(
-        key=lambda item: item["score"],
+    ranking.sort(
+        key=lambda x: x["score"],
         reverse=True
     )
 
-    if values:
+    return ranking
 
-        low = values[-1]["score"]
 
-        high = values[0]["score"]
+# ============================================================
+# CHIPS
+# ============================================================
 
-        span = max(
-            high - low,
-            1.0
+def mostrar_chips(numeros):
+
+    html = ""
+
+    for numero in numeros:
+
+        classe = ""
+
+        if numero == 0:
+            classe = "green"
+
+        elif numero in VERMELHOS:
+            classe = "red"
+
+        html += (
+            '<span class="chip '
+            + classe
+            + '">'
+            + str(numero)
+            + "</span>"
         )
 
-        for item in values:
-
-            relative = (
-                item["score"] - low
-            ) / span
-
-            item["probability"] = (
-                2.0 + relative * 8.0
-            )
-
-    return values
+    st.markdown(
+        html,
+        unsafe_allow_html=True
+    )
 
 
 # ============================================================
 # BACKTEST
 # ============================================================
 
-def backtest(data, direction):
+def executar_backtest(dados):
 
-    if len(data) < 40:
-        return 0, 0
+    if len(dados) < 30:
+        return None
 
-    start = max(
-        30,
-        len(data) - 100
+    inicio = max(
+        20,
+        len(dados) - 100
     )
 
-    hits = 0
-    tests = 0
+    acertos = 0
+    testes = 0
 
-    for i in range(
-        start,
-        len(data)
-    ):
+    for i in range(inicio, len(dados)):
 
-        previous = data[:i]
+        historico = dados[:i]
 
-        ranked = ranking(
-            previous,
-            direction
+        ranking = criar_ranking(
+            historico
         )
 
-        selected = {
-            x["number"]
-            for x in ranked[:22]
+        escolhas = {
+            item["numero"]
+            for item in ranking[:22]
         }
 
-        if data[i] in selected:
-            hits += 1
+        resultado = dados[i]
 
-        tests += 1
+        if resultado in escolhas:
+            acertos += 1
 
-    return hits, tests
+        testes += 1
 
+    if testes == 0:
+        return None
 
-# ============================================================
-# BOLAS
-# ============================================================
+    percentual = (
+        acertos / testes
+    ) * 100
 
-def ball_html(n):
-
-    if n == 0:
-        cls = "zero-ball"
-
-    elif n in RED:
-        cls = "red-ball"
-
-    else:
-        cls = "black-ball"
-
-    return (
-        '<span class="ball {}">{}</span>'
-        .format(cls, n)
-    )
-
-
-def balls_html(items):
-
-    return "".join(
-        ball_html(x["number"])
-        for x in items
-    )
+    return acertos, testes, percentual
 
 
 # ============================================================
 # CABEÇALHO
 # ============================================================
 
-st.markdown("""
-<div class="brand">
+col_logo, col_sentido, col_menu = st.columns(
+    [5, 2, 1]
+)
 
-    <div class="brand-icon">
-        🎯💵
-    </div>
-
-    <div class="brand-title">
-        ROBÔ <span>RICO</span> 🤑
-    </div>
-
-</div>
-
-<div class="subtitle">
-    Estatística • Matemática • Roda • Mesa • Transições • Espelhos
-</div>
-""", unsafe_allow_html=True)
-
-
-# ============================================================
-# SENTIDO
-# ============================================================
-
-left, right = st.columns([3, 1])
-
-with left:
-
-    direction = st.selectbox(
-        "Sentido da análise",
-        [
-            "Direita",
-            "Esquerda"
-        ]
-    )
-
-with right:
+with col_logo:
 
     st.markdown(
         """
-        <div class="card"
-             style="text-align:center;min-height:72px;">
-
-            <div class="card-title">
-                SENTIDO ATUAL
-            </div>
-
-            <div class="card-value green">
-                → {}
-            </div>
-
-        </div>
-        """.format(direction),
+        ## 🎯 **ROBÔ <span style="color:#20d85a">RICO</span> 🤑**
+        """,
         unsafe_allow_html=True
     )
+
+    st.caption(
+        "Estatística • Matemática • Roda • Mesa • "
+        "Transições • Espelhos"
+    )
+
+
+with col_sentido:
+
+    sentido = st.selectbox(
+        "Sentido atual",
+        ["Direita", "Esquerda"]
+    )
+
+
+with col_menu:
+
+    st.markdown("### ☰")
 
 
 # ============================================================
 # HISTÓRICO
 # ============================================================
 
-st.markdown(
-    '<div class="section">📦 Histórico da roleta</div>',
-    unsafe_allow_html=True
-)
+st.markdown("### 📦 Histórico da roleta")
 
-
-text = st.text_area(
-    "Cole os últimos resultados",
+texto_historico = st.text_area(
+    "Resultados",
     placeholder=(
-        "Exemplo: "
-        "32 23 13 35 4 20 4 14 12 4"
+        "Cole os resultados aqui...\n"
+        "Exemplo: 32 23 13 35 4 20 4 14 12 4"
     ),
-    height=110
+    height=100,
+    label_visibility="collapsed"
 )
 
 
-b1, b2, b3 = st.columns(3)
+botao1, botao2, botao3 = st.columns(
+    [1.4, 1, 1]
+)
 
 
-with b1:
+with botao1:
 
-    if st.button(
+    analisar = st.button(
         "📊 ANALISAR HISTÓRICO",
-        use_container_width=True
-    ):
-
-        parsed = parse_numbers(text)
-
-        if parsed:
-
-            st.session_state.history = parsed
-
-            st.rerun()
-
-        else:
-
-            st.warning(
-                "Cole números de 0 a 36."
-            )
-
-
-with b2:
-
-    if st.button(
-        "📋 USAR DADOS COLADOS",
-        use_container_width=True
-    ):
-
-        parsed = parse_numbers(text)
-
-        if parsed:
-
-            st.session_state.history = parsed
-
-            st.rerun()
-
-        else:
-
-            st.warning(
-                "Nenhum número válido encontrado."
-            )
-
-
-with b3:
-
-    if st.button(
-        "🗑️ LIMPAR",
-        use_container_width=True
-    ):
-
-        st.session_state.history = []
-
-        st.rerun()
-
-
-# ============================================================
-# DADOS
-# ============================================================
-
-data = (
-    st.session_state.history[
-        -MAX_HISTORY:
-    ]
-)
-
-
-if data:
-
-    ranked = ranking(
-        data,
-        direction
+        use_container_width=True,
+        type="primary"
     )
 
-else:
 
-    ranked = []
+with botao2:
 
-
-top22 = ranked[:22]
-
-high = top22[:8]
-
-possible = top22[8:15]
-
-marked = top22[15:22]
+    limpar = st.button(
+        "🗑️ LIMPAR",
+        use_container_width=True
+    )
 
 
-hits, tests = backtest(
-    data,
-    direction
-)
+with botao3:
+
+    usar_dados = st.button(
+        "📋 USAR DADOS COLADOS",
+        use_container_width=True
+    )
 
 
-coverage = (
-    hits / tests * 100
-    if tests
-    else 0.0
-)
+if limpar:
+
+    st.session_state.historico = []
+
+    st.rerun()
 
 
-counts = Counter(data)
+if analisar or usar_dados:
+
+    numeros = extrair_numeros(
+        texto_historico
+    )
+
+    if numeros:
+
+        st.session_state.historico = (
+            numeros[-MAX_HISTORICO:]
+        )
+
+    else:
+
+        st.warning(
+            "Nenhum número válido foi encontrado."
+        )
 
 
-if data:
-
-    delays = [
-        delay(n, data)
-        for n in NUMBERS
-    ]
-
-else:
-
-    delays = [0] * 37
-
-
-last = (
-    data[-1]
-    if data
-    else "—"
-)
+dados = st.session_state.historico
 
 
 # ============================================================
-# CARDS
+# SEM DADOS
+# ============================================================
+
+if not dados:
+
+    st.info(
+        "Cole os resultados da roleta acima "
+        "para iniciar a análise estatística."
+    )
+
+    st.stop()
+
+
+# ============================================================
+# ANÁLISE
+# ============================================================
+
+ranking = criar_ranking(dados)
+
+top22 = [
+    item["numero"]
+    for item in ranking[:22]
+]
+
+tendencia_alta = top22[:8]
+
+possiveis = top22[8:15]
+
+marcacao = top22[15:22]
+
+backtest = executar_backtest(
+    dados
+)
+
+ultimo = dados[-1]
+
+
+# ============================================================
+# CARDS SUPERIORES
 # ============================================================
 
 m1, m2, m3, m4, m5 = st.columns(5)
 
 
-metrics = [
+with m1:
 
-    (
+    st.metric(
         "ÚLTIMO RESULTADO",
-        last,
-        color_name(last)
-        if data
-        else "",
-        ""
-    ),
-
-    (
-        "BASE ANALISADA",
-        len(data),
-        "últimos resultados",
-        "blue"
-    ),
-
-    (
-        "DESEMPENHO (22)",
-        "{:.1f}%".format(coverage),
-        "backtest",
-        "green"
-    ),
-
-    (
-        "ESCOLHAS DO ROBÔ",
-        22,
-        "8 + 7 + 7",
-        "purple"
-    ),
-
-    (
-        "TRANSIÇÕES",
-        max(len(data) - 1, 0),
-        "pares observados",
-        "cyan"
+        ultimo
     )
 
-]
+    st.caption(
+        f"{cor(ultimo)} • "
+        f"{paridade(ultimo)} • "
+        f"{duzia(ultimo)} Dúzia"
+    )
 
 
-for col, item in zip(
-    [m1, m2, m3, m4, m5],
-    metrics
-):
+with m2:
 
-    title, value, sub, color = item
+    st.metric(
+        "BASE ANALISADA",
+        len(dados)
+    )
 
-    with col:
+    st.caption(
+        "últimos resultados"
+    )
 
-        st.markdown(
-            """
-            <div class="card">
 
-                <div class="card-title">
-                    {}
-                </div>
+with m3:
 
-                <div class="card-value {}">
-                    {}
-                </div>
+    if backtest:
 
-                <div style="
-                    color:#91a3af;
-                    font-size:11px;
-                ">
-                    {}
-                </div>
-
-            </div>
-            """.format(
-                title,
-                color,
-                value,
-                sub
-            ),
-            unsafe_allow_html=True
+        st.metric(
+            "DESEMPENHO (22)",
+            f"{backtest[2]:.1f}%"
         )
+
+    else:
+
+        st.metric(
+            "DESEMPENHO (22)",
+            "—"
+        )
+
+    st.caption(
+        "cobertura no backtest"
+    )
+
+
+with m4:
+
+    st.metric(
+        "ESCOLHAS DO ROBÔ",
+        22
+    )
+
+    st.caption(
+        "números selecionados"
+    )
+
+
+with m5:
+
+    st.metric(
+        "TRANSIÇÕES",
+        max(0, len(dados) - 1)
+    )
+
+    st.caption(
+        "transições observadas"
+    )
 
 
 # ============================================================
 # ESCOLHAS
 # ============================================================
 
-st.markdown(
-    '<div class="section">🔥 Escolhas do robô</div>',
-    unsafe_allow_html=True
-)
+st.markdown("### 🔥 ESCOLHAS DO ROBÔ")
 
+
+c1, c2, c3 = st.columns(3)
+
+
+with c1:
+
+    st.markdown(
+        '<div class="choice high">',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "### 📈 8 NÚMEROS — TENDÊNCIA ALTA"
+    )
+
+    mostrar_chips(
+        tendencia_alta
+    )
+
+    st.markdown(
+        '<div class="note">'
+        'Maior força estatística no momento'
+        '</div></div>',
+        unsafe_allow_html=True
+    )
+
+
+with c2:
+
+    st.markdown(
+        '<div class="choice possible">',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "### ❓ 7 NÚMEROS — POSSÍVEIS"
+    )
+
+    mostrar_chips(
+        possiveis
+    )
+
+    st.markdown(
+        '<div class="note">'
+        'Números com chance secundária'
+        '</div></div>',
+        unsafe_allow_html=True
+    )
+
+
+with c3:
+
+    st.markdown(
+        '<div class="choice mark">',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "### 🎯 7 NÚMEROS — MARCAÇÃO"
+    )
+
+    mostrar_chips(
+        marcacao
+    )
+
+    st.markdown(
+        '<div class="note">'
+        'Cobertura e proteção'
+        '</div></div>',
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
+# ESTATÍSTICAS
+# ============================================================
+
+contador = Counter(dados)
+
+frequencias = [
+    contador[n]
+    for n in range(37)
+]
+
+atrasos = [
+    atraso(n, dados)
+    for n in range(37)
+]
+
+zscores = [
+    zscore(n, dados)
+    for n in range(37)
+]
+
+
+transicoes_fortes = 0
+
+for atual, proximo in zip(
+    dados[:-1],
+    dados[1:]
+):
+
+    if distancia_roda(
+        atual,
+        proximo
+    ) <= 3:
+
+        transicoes_fortes += 1
+
+
+s1, s2, s3, s4, s5 = st.columns(5)
+
+
+with s1:
+
+    st.metric(
+        "FREQUÊNCIA MÉDIA",
+        f"{mean(frequencias):.2f}"
+    )
+
+
+with s2:
+
+    st.metric(
+        "ATRASO MÉDIO",
+        f"{mean(atrasos):.1f}"
+    )
+
+
+with s3:
+
+    st.metric(
+        "Z-SCORE MÉDIO",
+        f"{mean(zscores):.2f}"
+    )
+
+
+with s4:
+
+    st.metric(
+        "MAIOR ATRASO",
+        max(atrasos)
+    )
+
+
+with s5:
+
+    st.metric(
+        "PUXAS FORTES",
+        transicoes_fortes
+    )
+
+
+# ============================================================
+# PAINÉIS INFERIORES
+# ============================================================
 
 p1, p2, p3 = st.columns(3)
 
 
 with p1:
 
-    st.markdown(
-        """
-        <div class="pick pick-high">
+    st.markdown("### 🎨 RESUMO DE CORES")
 
-            <div class="pick-title high-text">
-                📈 8 NÚMEROS COM TENDÊNCIA ALTA
-            </div>
+    total = len(dados)
 
-            <div>
-                {}
-            </div>
+    vermelhos = contador.copy()
 
-            <div class="note">
-                Maior força estatística no momento
-            </div>
+    vermelho_pct = (
+        sum(
+            1
+            for n in dados
+            if n in VERMELHOS
+        )
+        / total
+        * 100
+    )
 
-        </div>
-        """.format(
-            balls_html(high)
-        ),
-        unsafe_allow_html=True
+    preto_pct = (
+        sum(
+            1
+            for n in dados
+            if n != 0 and n not in VERMELHOS
+        )
+        / total
+        * 100
+    )
+
+    verde_pct = (
+        dados.count(0)
+        / total
+        * 100
+    )
+
+    st.write(
+        f"🔴 Vermelhos: **{vermelho_pct:.1f}%**"
+    )
+
+    st.write(
+        f"⚫ Pretos: **{preto_pct:.1f}%**"
+    )
+
+    st.write(
+        f"🟢 Verdes: **{verde_pct:.1f}%**"
     )
 
 
 with p2:
 
-    st.markdown(
-        """
-        <div class="pick pick-possible">
+    st.markdown("### 🧮 PADRÕES NUMÉRICOS")
 
-            <div class="pick-title possible-text">
-                ❓ 7 NÚMEROS COMO POSSÍVEL
-            </div>
+    st.write(
+        "Primos:",
+        sum(contador[n] for n in PRIMOS)
+    )
 
-            <div>
-                {}
-            </div>
+    st.write(
+        "Fibonacci:",
+        sum(contador[n] for n in FIBONACCI)
+    )
 
-            <div class="note">
-                Chance secundária dentro do modelo
-            </div>
+    st.write(
+        "Quadrados:",
+        sum(contador[n] for n in QUADRADOS)
+    )
 
-        </div>
-        """.format(
-            balls_html(possible)
-        ),
-        unsafe_allow_html=True
+    st.write(
+        "Múltiplos de 3:",
+        sum(
+            contador[n]
+            for n in range(37)
+            if n != 0 and n % 3 == 0
+        )
+    )
+
+    st.write(
+        "Múltiplos de 2:",
+        sum(
+            contador[n]
+            for n in range(37)
+            if n != 0 and n % 2 == 0
+        )
     )
 
 
 with p3:
 
+    st.markdown("### 🕒 ÚLTIMAS JANELAS")
+
+    for janela in [
+        10, 20, 37, 50,
+        100, 150, 200
+    ]:
+
+        if dados:
+
+            valor = dados[
+                -min(janela, len(dados))
+            ]
+
+            st.write(
+                f"Últimos {janela}: **{valor}**"
+            )
+
+
+# ============================================================
+# HISTÓRICO E BACKTEST
+# ============================================================
+
+r1, r2 = st.columns([1.5, 1])
+
+
+with r1:
+
     st.markdown(
-        """
-        <div class="pick pick-mark">
+        "### 📜 HISTÓRICO RECENTE "
+        "(últimos 20)"
+    )
 
-            <div class="pick-title mark-text">
-                🎯 7 NÚMEROS COMO MARCAÇÃO
-            </div>
-
-            <div>
-                {}
-            </div>
-
-            <div class="note">
-                Cobertura e proteção estatística
-            </div>
-
-        </div>
-        """.format(
-            balls_html(marked)
-        ),
-        unsafe_allow_html=True
+    mostrar_chips(
+        dados[-20:]
     )
 
 
-# ============================================================
-# RESUMO
-# ============================================================
+with r2:
 
-st.markdown(
-    '<div class="section">📊 Resumo da análise</div>',
-    unsafe_allow_html=True
-)
-
-
-s1, s2, s3, s4 = st.columns(4)
-
-
-avg_frequency = (
-    len(data) / 37
-    if data
-    else 0
-)
-
-
-max_frequency = (
-    max(counts.values())
-    if counts
-    else 0
-)
-
-
-avg_delay = (
-    mean(delays)
-    if data
-    else 0
-)
-
-
-max_delay = (
-    max(delays)
-    if data
-    else 0
-)
-
-
-avg_z = (
-    mean(
-        [
-            z_score(n, data)
-            for n in NUMBERS
-        ]
-    )
-    if data
-    else 0
-)
-
-
-summary = [
-
-    (
-        "FREQUÊNCIA",
-        "Média: {:.2f}".format(
-            avg_frequency
-        ),
-        "Máxima: {}".format(
-            max_frequency
-        ),
-        "blue"
-    ),
-
-    (
-        "ATRASO",
-        "Média: {:.1f}".format(
-            avg_delay
-        ),
-        "Máximo: {}".format(
-            max_delay
-        ),
-        "purple"
-    ),
-
-    (
-        "Z-SCORE",
-        "Média: {:.2f}".format(
-            avg_z
-        ),
-        "37 números analisados",
-        "green"
-    ),
-
-    (
-        "BACKTEST",
-        "Acertos: {}".format(
-            hits
-        ),
-        "Testes: {} • {:.1f}%".format(
-            tests,
-            coverage
-        ),
-        "orange"
+    st.markdown(
+        "### 🧪 TESTE DE COBERTURA "
+        "(BACKTEST)"
     )
 
-]
+    if backtest:
 
+        acertos, testes, cobertura = (
+            backtest
+        )
 
-for col, item in zip(
-    [s1, s2, s3, s4],
-    summary
-):
+        b1, b2, b3 = st.columns(3)
 
-    title, line1, line2, color = item
+        b1.metric(
+            "Acertos",
+            acertos
+        )
 
-    with col:
+        b2.metric(
+            "Testes",
+            testes
+        )
 
-        st.markdown(
-            """
-            <div class="panel">
+        b3.metric(
+            "Cobertura",
+            f"{cobertura:.1f}%"
+        )
 
-                <div class="panel-title">
-                    {}
-                </div>
+    else:
 
-                <div class="{}"
-                     style="
-                     font-size:19px;
-                     font-weight:800;
-                     ">
-                    {}
-                </div>
-
-                <div style="
-                    color:#91a3af;
-                    font-size:12px;
-                    margin-top:7px;
-                ">
-                    {}
-                </div>
-
-            </div>
-            """.format(
-                title,
-                color,
-                line1,
-                line2
-            ),
-            unsafe_allow_html=True
+        st.info(
+            "São necessários pelo menos "
+            "30 resultados."
         )
 
 
 # ============================================================
-# MATEMÁTICA
+# RANKING COMPLETO
 # ============================================================
 
-st.markdown(
-    '<div class="section">🧮 Padrões matemáticos</div>',
-    unsafe_allow_html=True
-)
+with st.expander(
+    "🏆 VER RANKING COMPLETO DOS 37 NÚMEROS"
+):
 
+    tabela = []
 
-q1, q2, q3 = st.columns(3)
+    for posicao, item in enumerate(
+        ranking,
+        start=1
+    ):
 
+        numero = item["numero"]
 
-with q1:
-
-    st.markdown(
-        """
-        <div class="panel">
-
-            <div class="panel-title">
-                PADRÕES
-            </div>
-
-            <div class="row">
-                <span>Primos</span>
-                <b>{}</b>
-            </div>
-
-            <div class="row">
-                <span>Fibonacci</span>
-                <b>{}</b>
-            </div>
-
-            <div class="row">
-                <span>Quadrados</span>
-                <b>{}</b>
-            </div>
-
-        </div>
-        """.format(
-            sum(x in PRIMES for x in data),
-            sum(x in FIB for x in data),
-            sum(x in SQUARES for x in data)
-        ),
-        unsafe_allow_html=True
-    )
-
-
-with q2:
-
-    st.markdown(
-        """
-        <div class="panel">
-
-            <div class="panel-title">
-                CLASSIFICAÇÕES
-            </div>
-
-            <div class="row">
-                <span>🔴 Vermelhos</span>
-                <b>{}</b>
-            </div>
-
-            <div class="row">
-                <span>⚫ Pretos</span>
-                <b>{}</b>
-            </div>
-
-            <div class="row">
-                <span>🟢 Zeros</span>
-                <b>{}</b>
-            </div>
-
-        </div>
-        """.format(
-            sum(x in RED for x in data),
-            sum(
-                x != 0 and x not in RED
-                for x in data
+        tabela.append({
+            "Posição": posicao,
+            "Número": numero,
+            "Score": round(
+                item["score"],
+                2
             ),
-            data.count(0)
-        ),
-        unsafe_allow_html=True
+            "Frequência": contador[numero],
+            "Atraso": atraso(
+                numero,
+                dados
+            ),
+            "Cor": cor(numero),
+            "Dúzia": duzia(numero),
+            "Coluna": coluna(numero),
+            "Espelho roda": espelho_roda(
+                numero
+            ),
+            "Espelho número": espelho_numerico(
+                numero
+            )
+        })
+
+    st.dataframe(
+        tabela,
+        use_container_width=True,
+        hide_index=True
     )
 
 
-with q3:
+# ============================================================
+# NOVO RESULTADO
+# ============================================================
 
-    html = (
-        '<div class="panel">'
-        '<div class="panel-title">'
-        'ÚLTIMAS JANELAS'
-        '</div>'
+st.markdown("### ➕ ADICIONAR NOVO RESULTADO")
+
+n1, n2 = st.columns([1, 2])
+
+
+with n1:
+
+    novo_resultado = st.number_input(
+        "Número que saiu",
+        min_value=0,
+        max_value=36,
+        value=0,
+        step=1
     )
 
-    for size in [
-        10,
-        20,
-        37,
-        50,
-        100,
-        150,
-        200
-    ]:
 
-        part = data[-size:]
+with n2:
 
-        va
+    if st.button(
+        "ADICIONAR & ATUALIZAR",
+        type="primary",
+        use_container_width=True
+    ):
+
+        st.session_state.historico.append(
+            int(novo_resultado)
+        )
+
+        st.session_state.historico = (
+            st.session_state.historico[
+                -MAX_HISTORICO:
+    ]
+
+        )
+
+        st.rerun()
+
+
+# ============================================================
+# RODAPÉ
+# ============================================================
+
+st.caption(
+    "⚠️ Jogue com responsabilidade. "
+    "Este sistema é apenas para análise estatística. "
+    "A roleta é aleatória e o histórico não garante "
+    "o próximo resultado."
+)
