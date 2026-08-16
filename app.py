@@ -3,381 +3,274 @@ from collections import Counter, defaultdict
 from statistics import mean, pstdev
 
 st.set_page_config(
-    page_title="ROBÔ RICO 🤑",
+    page_title="ROBÔ RICO",
     page_icon="🎯",
     layout="wide"
 )
 
-MAX_HIST = 200
-NUMEROS = list(range(37))
+MAX_HISTORY = 200
+NUMBERS = list(range(37))
 
-RODA = [
-    0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,
-    5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26
+WHEEL = [
+    0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13,
+    36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14,
+    31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
 ]
 
-POS = {n:i for i,n in enumerate(RODA)}
+POS = {n: i for i, n in enumerate(WHEEL)}
 
-VERMELHOS = {
-    1,3,5,7,9,12,14,16,18,
-    19,21,23,25,27,30,32,34,36
+RED = {
+    1, 3, 5, 7, 9, 12, 14, 16, 18,
+    19, 21, 23, 25, 27, 30, 32, 34, 36
 }
 
-PRIMOS = {
-    2,3,5,7,11,13,17,19,23,29,31
+PRIMES = {
+    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31
 }
 
 FIB = {
-    0,1,2,3,5,8,13,21,34
+    0, 1, 2, 3, 5, 8, 13, 21, 34
 }
 
-QUADRADOS = {
-    0,1,4,9,16,25,36
+SQUARES = {
+    0, 1, 4, 9, 16, 25, 36
 }
+
+
+if "history" not in st.session_state:
+    st.session_state.history = []
+
 
 # ============================================================
-# CSS
+# INTERFACE
 # ============================================================
 
 st.markdown("""
 <style>
 
-.stApp{
-    background:
-      radial-gradient(
-        circle at 0% 0%,
-        rgba(0,120,190,.10),
-        transparent 28%
-      ),
-      radial-gradient(
-        circle at 100% 0%,
-        rgba(100,0,180,.12),
-        transparent 30%
-      ),
-      #02080e;
-    color:#edf4f8;
+.stApp {
+    background: #071018;
+    color: #edf3f7;
 }
 
-.block-container{
-    max-width:1500px;
-    padding:18px 18px 35px;
+.block-container {
+    max-width: 1200px;
+    padding: 24px 18px 40px;
 }
 
-header[data-testid="stHeader"]{
-    background:transparent;
+header[data-testid="stHeader"] {
+    background: transparent;
 }
 
-/* LOGO */
-
-.brand{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:16px;
-    margin-bottom:15px;
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
 }
 
-.brand-left{
-    display:flex;
-    align-items:center;
-    gap:12px;
+.brand-icon {
+    font-size: 42px;
 }
 
-.logo{
-    font-size:54px;
-    line-height:1;
+.brand-title {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
 }
 
-.title{
-    font-size:42px;
-    font-weight:900;
-    letter-spacing:-1.5px;
-    line-height:1;
-    color:#f4f7fa;
+.brand-title span {
+    color: #19d95b;
 }
 
-.title .rico{
-    color:#16d94d;
+.subtitle {
+    color: #91a3af;
+    font-size: 13px;
+    margin: 4px 0 18px 55px;
 }
 
-.subtitle{
-    color:#aebbc6;
-    font-size:15px;
-    margin-top:7px;
+.card {
+    background: #0b1721;
+    border: 1px solid #203544;
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 105px;
 }
 
-.direction{
-    border:1px solid #294050;
-    background:#061018;
-    border-radius:10px;
-    padding:9px 28px;
-    text-align:center;
-    min-width:225px;
+.card-title {
+    color: #9aaab5;
+    font-size: 11px;
+    text-transform: uppercase;
 }
 
-.direction small{
-    display:block;
-    color:#bdc8d1;
+.card-value {
+    font-size: 30px;
+    font-weight: 800;
+    margin-top: 6px;
 }
 
-.direction b{
-    display:block;
-    color:#19db4f;
-    font-size:26px;
+.blue {
+    color: #159cff;
 }
 
-.direction span{
-    font-size:11px;
-    color:#9baab5;
+.green {
+    color: #19d95b;
 }
 
-.menu{
-    border:1px solid #294050;
-    border-radius:10px;
-    background:#061018;
-    width:60px;
-    height:60px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:30px;
+.purple {
+    color: #a86cff;
 }
 
-/* CARDS SUPERIORES */
-
-.metric{
-    border:1px solid #263b4b;
-    border-radius:9px;
-    background:#061018;
-    padding:13px 10px;
-    text-align:center;
-    min-height:112px;
+.cyan {
+    color: #19d7e8;
 }
 
-.metric .label{
-    font-size:12px;
-    color:#c2cdd5;
-    text-transform:uppercase;
+.orange {
+    color: #ffb52e;
 }
 
-.metric .value{
-    font-size:37px;
-    font-weight:900;
-    margin:4px;
+.section {
+    font-size: 19px;
+    font-weight: 800;
+    margin: 22px 0 10px;
 }
 
-.metric .sub{
-    font-size:12px;
-    color:#d0d8de;
+.pick {
+    background: #0b1721;
+    border-radius: 14px;
+    padding: 15px;
+    min-height: 190px;
 }
 
-.blue{color:#1495ff}
-.green{color:#16d94d}
-.purple{color:#a65cff}
-.cyan{color:#11d8ed}
-.orange{color:#ffad22}
-
-/* SEÇÃO */
-
-.section{
-    font-size:22px;
-    font-weight:850;
-    color:#dbe4ea;
-    margin:18px 0 10px;
+.pick-high {
+    border: 1px solid #158f4b;
 }
 
-/* ESCOLHAS */
-
-.pick{
-    border-radius:9px;
-    background:#040d14;
-    padding:14px;
-    min-height:285px;
+.pick-possible {
+    border: 1px solid #087dce;
 }
 
-.pick.high{
-    border:1px solid #0ca64a;
+.pick-mark {
+    border: 1px solid #c98213;
 }
 
-.pick.possible{
-    border:1px solid #0788e8;
+.pick-title {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 12px;
 }
 
-.pick.mark{
-    border:1px solid #d98b08;
+.high-text {
+    color: #19d95b;
 }
 
-.pick h4{
-    margin:0 0 15px;
-    font-size:14px;
+.possible-text {
+    color: #159cff;
 }
 
-.pick.high h4{
-    color:#13db54;
+.mark-text {
+    color: #ffb52e;
 }
 
-.pick.possible h4{
-    color:#129cff;
+.ball {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    margin: 4px 3px;
+    font-weight: 800;
+    border: 1px solid #60707c;
 }
 
-.pick.mark h4{
-    color:#ffad21;
+.red-ball {
+    background: #d92532;
 }
 
-/* BOLAS */
-
-.ball{
-    display:inline-flex;
-    width:45px;
-    height:45px;
-    border-radius:50%;
-    align-items:center;
-    justify-content:center;
-    margin:5px 3px;
-    font-size:17px;
-    font-weight:900;
-    border:1px solid #6b7780;
+.black-ball {
+    background: #05080b;
 }
 
-.red{
-    background:#dc2630;
-    border-color:#ff6269;
+.zero-ball {
+    background: #0cae49;
 }
 
-.black{
-    background:#030609;
+.note {
+    margin-top: 14px;
+    padding: 8px;
+    border-radius: 8px;
+    background: #071018;
+    color: #93a5b1;
+    font-size: 11px;
 }
 
-.zero{
-    background:#0a9e43;
-    border-color:#24df65;
+.panel {
+    background: #0b1721;
+    border: 1px solid #203544;
+    border-radius: 14px;
+    padding: 15px;
 }
 
-.footer{
-    margin-top:14px;
-    border:1px solid currentColor;
-    border-radius:6px;
-    padding:8px;
-    text-align:center;
-    font-size:11px;
+.panel-title {
+    color: #cbd5dc;
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 10px;
 }
 
-/* PAINÉIS */
-
-.panel{
-    border:1px solid #263b4b;
-    border-radius:9px;
-    background:#040d14;
-    padding:14px;
-    min-height:125px;
+.row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid #162a37;
+    font-size: 13px;
 }
 
-.panel h4{
-    margin:0 0 10px;
-    color:#c9d3db;
-    font-size:13px;
-    text-transform:uppercase;
+.row:last-child {
+    border-bottom: 0;
 }
 
-.line{
-    display:flex;
-    justify-content:space-between;
-    padding:7px 0;
-    border-bottom:1px solid rgba(150,180,200,.10);
-    font-size:13px;
+.stButton > button {
+    border-radius: 10px;
+    min-height: 42px;
+    font-weight: 700;
 }
 
-.line:last-child{
-    border-bottom:0;
+div[data-testid="stTextArea"] textarea {
+    border-radius: 12px;
 }
 
-/* TOP 5 */
-
-.rank{
-    display:flex;
-    justify-content:space-between;
-    padding:8px 0;
-    border-bottom:1px solid rgba(150,180,200,.10);
+div[data-testid="stNumberInput"] input {
+    border-radius: 10px;
 }
 
-.rank b{
-    color:#15d94c;
+.footer {
+    text-align: center;
+    color: #6f818e;
+    font-size: 11px;
+    margin-top: 22px;
 }
 
-/* HISTÓRICO */
+@media (max-width: 700px) {
 
-.recent{
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-}
-
-.smallball{
-    width:32px;
-    height:32px;
-    border-radius:50%;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    font-size:12px;
-    font-weight:900;
-    border:1px solid #65727c;
-}
-
-div[data-testid="stButton"]>button{
-    background:#06131c;
-    color:#eaf0f4;
-    border:1px solid #2a4656;
-    border-radius:8px;
-    font-weight:800;
-    min-height:42px;
-}
-
-div[data-testid="stButton"]>button:hover{
-    border-color:#159cff;
-    color:white;
-}
-
-div[data-testid="stTextArea"] textarea{
-    background:#f0f2f6;
-    color:#18212a;
-    border-radius:10px;
-}
-
-div[data-testid="stNumberInput"] input{
-    background:#06131c;
-    color:white;
-}
-
-.footer-note{
-    text-align:center;
-    color:#788895;
-    font-size:11px;
-    margin-top:18px;
-}
-
-@media(max-width:800px){
-
-    .title{
-        font-size:30px;
+    .brand-title {
+        font-size: 27px;
     }
 
-    .logo{
-        font-size:40px;
+    .brand-icon {
+        font-size: 35px;
     }
 
-    .direction,
-    .menu{
-        display:none;
+    .subtitle {
+        margin-left: 48px;
     }
 
-    .block-container{
-        padding:10px;
+    .card-value {
+        font-size: 25px;
     }
 
-    .metric .value{
-        font-size:29px;
-    }
 }
 
 </style>
@@ -388,89 +281,55 @@ div[data-testid="stNumberInput"] input{
 # FUNÇÕES
 # ============================================================
 
-def numeros(texto):
-
-    texto = (
-        texto
+def parse_numbers(text):
+    text = (
+        text
         .replace(",", " ")
         .replace(";", " ")
         .replace("\n", " ")
         .replace("\t", " ")
     )
 
-    saida = []
+    result = []
 
-    for x in texto.split():
+    for part in text.split():
 
         try:
-            n = int(x)
+            n = int(part)
 
             if 0 <= n <= 36:
-                saida.append(n)
+                result.append(n)
 
-        except:
-            pass
+        except ValueError:
+            continue
 
-    return saida
+    return result[-MAX_HISTORY:]
 
 
-def cor(n):
+def color_name(n):
 
     if n == 0:
         return "Verde"
 
-    if n in VERMELHOS:
+    if n in RED:
         return "Vermelho"
 
     return "Preto"
 
 
-def ball(n, small=False):
+def wheel_distance(a, b):
 
-    if n == 0:
-        cls = "zero"
+    d = abs(POS[a] - POS[b])
 
-    elif n in VERMELHOS:
-        cls = "red"
-
-    else:
-        cls = "black"
-
-    size = "smallball" if small else "ball"
-
-    return (
-        f'<span class="{size} {cls}">{n}</span>'
-    )
+    return min(d, 37 - d)
 
 
-def balls(ns, small=False):
+def wheel_mirror(n):
 
-    return "".join(
-        ball(n, small)
-        for n in ns
-    )
+    return WHEEL[(POS[n] + 18) % 37]
 
 
-def distancia(a, b):
-
-    d = abs(
-        POS[a] - POS[b]
-    )
-
-    return min(
-        d,
-        37 - d
-    )
-
-
-def espelho_roda(n):
-
-    return RODA[
-        (POS[n] + 18) % 37
-    ]
-
-
-def espelho_num(n):
+def numeric_mirror(n):
 
     if n == 0:
         return 0
@@ -478,326 +337,305 @@ def espelho_num(n):
     return 37 - n
 
 
-def atraso(n, data):
+def delay(n, data):
 
-    for i, x in enumerate(
-        reversed(data)
-    ):
+    for i, value in enumerate(reversed(data)):
 
-        if x == n:
+        if value == n:
             return i
 
     return len(data)
 
 
-def transicoes(data):
+def z_score(n, data):
 
-    m = defaultdict(Counter)
+    if not data:
+        return 0.0
+
+    counts = Counter(data)
+
+    values = [
+        counts[x]
+        for x in NUMBERS
+    ]
+
+    sd = pstdev(values)
+
+    if sd == 0:
+        return 0.0
+
+    return (
+        counts[n] - mean(values)
+    ) / sd
+
+
+def transition_matrix(data):
+
+    matrix = defaultdict(Counter)
 
     for a, b in zip(
         data[:-1],
         data[1:]
     ):
 
-        m[a][b] += 1
+        matrix[a][b] += 1
 
-    return m
-
-
-def zscore(n, data):
-
-    if not data:
-        return 0
-
-    freq = Counter(data)
-
-    vals = [
-        freq[x]
-        for x in NUMEROS
-    ]
-
-    sd = pstdev(vals)
-
-    if sd == 0:
-        return 0
-
-    return (
-        freq[n] - mean(vals)
-    ) / sd
+    return matrix
 
 
 # ============================================================
 # SCORE
 # ============================================================
 
-def score(n, data, direcao):
+def number_score(n, data, direction):
 
     if not data:
-        return 0
+        return 0.0
 
-    ultimo = data[-1]
+    last = data[-1]
 
-    matriz = transicoes(data)
+    score = 0.0
 
-    s = 0
+    matrix = transition_matrix(data)
 
-    # --------------------------------------------------------
-    # FREQUÊNCIA
-    # --------------------------------------------------------
-
-    pesos = {
-        10: 2.6,
-        20: 2.1,
-        37: 1.7,
-        50: 1.4,
-        100: 1.0,
-        150: .7,
-        200: .5
+    windows = {
+        10: 2.4,
+        20: 1.9,
+        37: 1.5,
+        50: 1.2,
+        100: 0.9,
+        150: 0.6,
+        200: 0.45
     }
 
-    for janela, peso in pesos.items():
+    # Frequência
+    for size, weight in windows.items():
 
-        parte = data[-janela:]
+        part = data[-size:]
 
-        if parte:
+        if part:
 
-            s += (
-                parte.count(n)
-                / len(parte)
+            score += (
+                part.count(n)
+                / len(part)
                 * 100
-                * peso
+                * weight
             )
 
-    # --------------------------------------------------------
-    # ATRASO
-    # --------------------------------------------------------
-
-    s += min(
-        atraso(n, data) * .055,
+    # Atraso
+    score += min(
+        delay(n, data) * 0.055,
         2.5
     )
 
-    # --------------------------------------------------------
-    # Z-SCORE
-    # --------------------------------------------------------
+    # Z-score
+    score += (
+        z_score(n, data)
+        * 0.55
+    )
 
-    s += zscore(
-        n,
-        data
-    ) * .55
+    # Vizinhança na roda
+    for previous in data[-35:]:
 
-    # --------------------------------------------------------
-    # VIZINHANÇA DA RODA
-    # --------------------------------------------------------
-
-    for x in data[-40:]:
-
-        d = distancia(
+        d = wheel_distance(
             n,
-            x
+            previous
         )
 
         if d == 1:
-            s += .65
+            score += 0.55
 
         elif d == 2:
-            s += .32
+            score += 0.28
 
         elif d == 3:
-            s += .10
+            score += 0.08
 
-    # --------------------------------------------------------
-    # TRANSIÇÃO / PUXA
-    # --------------------------------------------------------
-
+    # Transições / "puxa"
     total = sum(
-        matriz[ultimo].values()
+        matrix[last].values()
     )
 
     if total:
 
-        s += (
-            matriz[ultimo][n]
+        score += (
+            matrix[last][n]
             / total
             * 12
         )
 
-    # --------------------------------------------------------
-    # DIREÇÃO
-    # --------------------------------------------------------
-
-    if direcao == "Direita":
+    # Direção
+    if direction == "Direita":
 
         delta = (
             POS[n]
-            - POS[ultimo]
+            - POS[last]
         ) % 37
 
     else:
 
         delta = (
-            POS[ultimo]
+            POS[last]
             - POS[n]
         ) % 37
 
     if delta == 1:
-        s += 1.7
+        score += 1.6
 
     elif delta == 2:
-        s += 1.1
+        score += 1.0
 
     elif delta == 3:
-        s += .6
+        score += 0.5
 
-    # --------------------------------------------------------
-    # ESPELHOS
-    # --------------------------------------------------------
+    # Espelhos
+    if wheel_mirror(n) in data[-50:]:
+        score += 0.55
 
-    if espelho_roda(n) in data[-50:]:
-        s += .6
+    if numeric_mirror(n) in data[-50:]:
+        score += 0.25
 
-    if espelho_num(n) in data[-50:]:
-        s += .3
+    # Setor da roda
+    sector = POS[n] // 5
 
-    # --------------------------------------------------------
-    # SETOR DA RODA
-    # --------------------------------------------------------
+    score += (
+        sum(
+            POS[x] // 5 == sector
+            for x in data[-50:]
+        )
+        / 35
+    )
 
-    setor = POS[n] // 5
-
-    s += sum(
-        POS[x] // 5 == setor
-        for x in data[-50:]
-    ) / 30
-
-    # --------------------------------------------------------
-    # MATEMÁTICA
-    # --------------------------------------------------------
-
-    if n in PRIMOS:
-        s += .30
+    # Matemática
+    if n in PRIMES:
+        score += 0.25
 
     if n in FIB:
-        s += .25
+        score += 0.20
 
-    if n in QUADRADOS:
-        s += .15
+    if n in SQUARES:
+        score += 0.12
 
-    if n and n % 3 == 0:
-        s += .05
-
-    if n and n % 2 == 0:
-        s += .03
-
-    return s
+    return score
 
 
 # ============================================================
 # RANKING
 # ============================================================
 
-def analisar(data, direcao):
+def ranking(data, direction):
 
-    rows = []
+    values = []
 
-    for n in NUMEROS:
+    for n in NUMBERS:
 
-        rows.append({
-            "n": n,
-            "score": score(
+        values.append({
+            "number": n,
+            "score": number_score(
                 n,
                 data,
-                direcao
+                direction
             )
         })
 
-    rows.sort(
-        key=lambda x: x["score"],
+    values.sort(
+        key=lambda item: item["score"],
         reverse=True
     )
 
-    if not rows:
-        return rows
+    if values:
 
-    menor = rows[-1]["score"]
-    maior = rows[0]["score"]
+        low = values[-1]["score"]
 
-    intervalo = max(
-        maior - menor,
-        1
-    )
+        high = values[0]["score"]
 
-    for row in rows:
-
-        relativo = (
-            row["score"] - menor
-        ) / intervalo
-
-        # Estimativa relativa do modelo.
-        # Não é probabilidade matemática real.
-        row["prob"] = (
-            2 + relativo * 8
+        span = max(
+            high - low,
+            1.0
         )
 
-    return rows
+        for item in values:
+
+            relative = (
+                item["score"] - low
+            ) / span
+
+            item["probability"] = (
+                2.0 + relative * 8.0
+            )
+
+    return values
 
 
 # ============================================================
 # BACKTEST
 # ============================================================
 
-def backtest(
-    data,
-    direcao,
-    quantidade=22
-):
+def backtest(data, direction):
 
     if len(data) < 40:
         return 0, 0
 
-    inicio = max(
+    start = max(
         30,
         len(data) - 100
     )
 
-    acertos = 0
-    total = 0
+    hits = 0
+    tests = 0
 
     for i in range(
-        inicio,
+        start,
         len(data)
     ):
 
-        historico = data[:i]
+        previous = data[:i]
 
-        ranking = analisar(
-            historico,
-            direcao
+        ranked = ranking(
+            previous,
+            direction
         )
 
-        escolhidos = {
-            x["n"]
-            for x in ranking[:quantidade]
+        selected = {
+            x["number"]
+            for x in ranked[:22]
         }
 
-        if data[i] in escolhidos:
-            acertos += 1
+        if data[i] in selected:
+            hits += 1
 
-        total += 1
+        tests += 1
+
+    return hits, tests
+
+
+# ============================================================
+# BOLAS
+# ============================================================
+
+def ball_html(n):
+
+    if n == 0:
+        cls = "zero-ball"
+
+    elif n in RED:
+        cls = "red-ball"
+
+    else:
+        cls = "black-ball"
 
     return (
-        acertos,
-        total
+        '<span class="ball {}">{}</span>'
+        .format(cls, n)
     )
 
 
-# ============================================================
-# ESTADO
-# ============================================================
+def balls_html(items):
 
-if "historico" not in st.session_state:
-
-    st.session_state.historico = []
+    return "".join(
+        ball_html(x["number"])
+        for x in items
+    )
 
 
 # ============================================================
@@ -807,241 +645,247 @@ if "historico" not in st.session_state:
 st.markdown("""
 <div class="brand">
 
-    <div class="brand-left">
-
-        <div class="logo">
-            🎯💵
-        </div>
-
-        <div>
-
-            <div class="title">
-                ROBÔ <span class="rico">RICO</span> 🤑
-            </div>
-
-            <div class="subtitle">
-                Estatística • Matemática • Roda • Mesa • Transições • Espelhos
-            </div>
-
-        </div>
-
+    <div class="brand-icon">
+        🎯💵
     </div>
 
-    <div style="display:flex;gap:9px">
-
-        <div class="direction">
-
-            <small>
-                Sentido atual
-            </small>
-
-            <b>
-                → Direita
-            </b>
-
-            <span>
-                Automático
-            </span>
-
-        </div>
-
-        <div class="menu">
-            ☰
-        </div>
-
+    <div class="brand-title">
+        ROBÔ <span>RICO</span> 🤑
     </div>
 
+</div>
+
+<div class="subtitle">
+    Estatística • Matemática • Roda • Mesa • Transições • Espelhos
 </div>
 """, unsafe_allow_html=True)
 
 
-direcao = st.selectbox(
-    "Sentido da análise",
-    [
-        "Direita",
-        "Esquerda"
-    ],
-    label_visibility="collapsed"
+# ============================================================
+# SENTIDO
+# ============================================================
+
+left, right = st.columns([3, 1])
+
+with left:
+
+    direction = st.selectbox(
+        "Sentido da análise",
+        [
+            "Direita",
+            "Esquerda"
+        ]
+    )
+
+with right:
+
+    st.markdown(
+        """
+        <div class="card"
+             style="text-align:center;min-height:72px;">
+
+            <div class="card-title">
+                SENTIDO ATUAL
+            </div>
+
+            <div class="card-value green">
+                → {}
+            </div>
+
+        </div>
+        """.format(direction),
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
+# HISTÓRICO
+# ============================================================
+
+st.markdown(
+    '<div class="section">📦 Histórico da roleta</div>',
+    unsafe_allow_html=True
 )
 
 
-# ============================================================
-# IMPORTAÇÃO
-# ============================================================
+text = st.text_area(
+    "Cole os últimos resultados",
+    placeholder=(
+        "Exemplo: "
+        "32 23 13 35 4 20 4 14 12 4"
+    ),
+    height=110
+)
 
-with st.expander(
-    "📋 IMPORTAR HISTÓRICO",
-    expanded=True
-):
 
-    texto = st.text_area(
-        "Cole os últimos resultados",
-        placeholder=(
-            "Exemplo: "
-            "32 23 13 35 4 20 4 14 12 4"
-        ),
-        label_visibility="collapsed"
-    )
+b1, b2, b3 = st.columns(3)
 
-    a, b, c = st.columns(3)
 
-    with a:
+with b1:
 
-        if st.button(
-            "📥 USAR DADOS COLADOS",
-            use_container_width=True
-        ):
+    if st.button(
+        "📊 ANALISAR HISTÓRICO",
+        use_container_width=True
+    ):
 
-            dados_importados = numeros(
-                texto
-            )
+        parsed = parse_numbers(text)
 
-            if dados_importados:
+        if parsed:
 
-                st.session_state.historico = (
-                    dados_importados[-MAX_HIST:]
-                )
-
-                st.rerun()
-
-            else:
-
-                st.warning(
-                    "Nenhum número válido encontrado."
-                )
-
-    with b:
-
-        if st.button(
-            "🗑️ LIMPAR",
-            use_container_width=True
-        ):
-
-            st.session_state.historico = []
+            st.session_state.history = parsed
 
             st.rerun()
 
-    with c:
+        else:
 
-        st.caption(
-            "Máximo: 200 resultados"
-        )
+            st.warning(
+                "Cole números de 0 a 36."
+            )
 
+
+with b2:
+
+    if st.button(
+        "📋 USAR DADOS COLADOS",
+        use_container_width=True
+    ):
+
+        parsed = parse_numbers(text)
+
+        if parsed:
+
+            st.session_state.history = parsed
+
+            st.rerun()
+
+        else:
+
+            st.warning(
+                "Nenhum número válido encontrado."
+            )
+
+
+with b3:
+
+    if st.button(
+        "🗑️ LIMPAR",
+        use_container_width=True
+    ):
+
+        st.session_state.history = []
+
+        st.rerun()
+
+
+# ============================================================
+# DADOS
+# ============================================================
 
 data = (
-    st.session_state
-    .historico[-MAX_HIST:]
+    st.session_state.history[
+        -MAX_HISTORY:
+    ]
+)
+
+
+if data:
+
+    ranked = ranking(
+        data,
+        direction
+    )
+
+else:
+
+    ranked = []
+
+
+top22 = ranked[:22]
+
+high = top22[:8]
+
+possible = top22[8:15]
+
+marked = top22[15:22]
+
+
+hits, tests = backtest(
+    data,
+    direction
+)
+
+
+coverage = (
+    hits / tests * 100
+    if tests
+    else 0.0
+)
+
+
+counts = Counter(data)
+
+
+if data:
+
+    delays = [
+        delay(n, data)
+        for n in NUMBERS
+    ]
+
+else:
+
+    delays = [0] * 37
+
+
+last = (
+    data[-1]
+    if data
+    else "—"
 )
 
 
 # ============================================================
-# ANÁLISE
+# CARDS
 # ============================================================
 
-if data:
-
-    rows = analisar(
-        data,
-        direcao
-    )
-
-    top22 = rows[:22]
-
-    alta = top22[:8]
-
-    possiveis = top22[8:15]
-
-    marcacao = top22[15:22]
-
-    acertos, testes = backtest(
-        data,
-        direcao,
-        22
-    )
-
-    cobertura = (
-        acertos / testes * 100
-        if testes
-        else 0
-    )
-
-    freq = Counter(data)
-
-    atrasos = [
-        atraso(
-            n,
-            data
-        )
-        for n in NUMEROS
-    ]
-
-    avgz = mean([
-        zscore(n, data)
-        for n in NUMEROS
-    ])
-
-else:
-
-    rows = []
-
-    alta = []
-
-    possiveis = []
-
-    marcacao = []
-
-    acertos = 0
-
-    testes = 0
-
-    cobertura = 0
-
-    freq = Counter()
-
-    atrasos = [0] * 37
-
-    avgz = 0
+m1, m2, m3, m4, m5 = st.columns(5)
 
 
-# ============================================================
-# CARDS SUPERIORES
-# ============================================================
-
-c1, c2, c3, c4, c5 = st.columns(5)
-
-metricas = [
+metrics = [
 
     (
         "ÚLTIMO RESULTADO",
-        str(data[-1]) if data else "—",
-        "",
+        last,
+        color_name(last)
+        if data
+        else "",
         ""
     ),
 
     (
         "BASE ANALISADA",
-        str(len(data)),
+        len(data),
         "últimos resultados",
         "blue"
     ),
 
     (
         "DESEMPENHO (22)",
-        f"{cobertura:.1f}%",
-        "cobertura histórica",
+        "{:.1f}%".format(coverage),
+        "backtest",
         "green"
     ),
 
     (
         "ESCOLHAS DO ROBÔ",
-        "22",
-        "números selecionados",
+        22,
+        "8 + 7 + 7",
         "purple"
     ),
 
     (
         "TRANSIÇÕES",
-        str(max(len(data)-1,0)),
+        max(len(data) - 1, 0),
         "pares observados",
         "cyan"
     )
@@ -1049,234 +893,386 @@ metricas = [
 ]
 
 
-for col, (
-    label,
-    value,
-    sub,
-    classe
-) in zip(
-    [c1,c2,c3,c4,c5],
-    metricas
+for col, item in zip(
+    [m1, m2, m3, m4, m5],
+    metrics
 ):
+
+    title, value, sub, color = item
 
     with col:
 
         st.markdown(
-            f"""
-            <div class="metric">
+            """
+            <div class="card">
 
-                <div class="label">
-                    {label}
+                <div class="card-title">
+                    {}
                 </div>
 
-                <div class="value {classe}">
-                    {value}
+                <div class="card-value {}">
+                    {}
                 </div>
 
-                <div class="sub">
-                    {sub}
+                <div style="
+                    color:#91a3af;
+                    font-size:11px;
+                ">
+                    {}
                 </div>
 
             </div>
-            """,
+            """.format(
+                title,
+                color,
+                value,
+                sub
+            ),
             unsafe_allow_html=True
         )
 
 
 # ============================================================
-# ESCOLHAS DO ROBÔ
+# ESCOLHAS
 # ============================================================
 
 st.markdown(
-    '<div class="section">🔥 ESCOLHAS DO ROBÔ</div>',
+    '<div class="section">🔥 Escolhas do robô</div>',
     unsafe_allow_html=True
 )
 
-p1, p2, p3, rk = st.columns(
-    [1.1,1.1,1.1,.72]
-)
 
-
-def card_escolhas(
-    titulo,
-    lista,
-    classe,
-    rodape,
-    cor_rodape
-):
-
-    ns = [
-        x["n"]
-        for x in lista
-    ]
-
-    st.markdown(
-        f"""
-        <div class="pick {classe}">
-
-            <h4>
-                {titulo}
-            </h4>
-
-            <div>
-                {balls(ns)}
-            </div>
-
-            <div
-                class="footer"
-                style="color:{cor_rodape}"
-            >
-                {rodape}
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+p1, p2, p3 = st.columns(3)
 
 
 with p1:
 
-    card_escolhas(
-        "📈 8 NÚMEROS COM TENDÊNCIA ALTA",
-        alta,
-        "high",
-        "↗ Maior força estatística no momento",
-        "#15d94e"
+    st.markdown(
+        """
+        <div class="pick pick-high">
+
+            <div class="pick-title high-text">
+                📈 8 NÚMEROS COM TENDÊNCIA ALTA
+            </div>
+
+            <div>
+                {}
+            </div>
+
+            <div class="note">
+                Maior força estatística no momento
+            </div>
+
+        </div>
+        """.format(
+            balls_html(high)
+        ),
+        unsafe_allow_html=True
     )
 
 
 with p2:
 
-    card_escolhas(
-        "❓ 7 NÚMEROS COMO POSSÍVEL",
-        possiveis,
-        "possible",
-        "ⓘ Números com chance secundária",
-        "#129cff"
+    st.markdown(
+        """
+        <div class="pick pick-possible">
+
+            <div class="pick-title possible-text">
+                ❓ 7 NÚMEROS COMO POSSÍVEL
+            </div>
+
+            <div>
+                {}
+            </div>
+
+            <div class="note">
+                Chance secundária dentro do modelo
+            </div>
+
+        </div>
+        """.format(
+            balls_html(possible)
+        ),
+        unsafe_allow_html=True
     )
 
 
 with p3:
 
-    card_escolhas(
-        "🎯 7 NÚMEROS COMO MARCAÇÃO",
-        marcacao,
-        "mark",
-        "♢ Números para cobertura e proteção",
-        "#ffad21"
-    )
+    st.markdown(
+        """
+        <div class="pick pick-mark">
 
+            <div class="pick-title mark-text">
+                🎯 7 NÚMEROS COMO MARCAÇÃO
+            </div>
 
-with rk:
+            <div>
+                {}
+            </div>
 
-    html = (
-        '<div class="panel">'
-        '<h4>👑 TOP 5 GERAL</h4>'
-    )
-
-    for i, x in enumerate(
-        rows[:5],
-        1
-    ):
-
-        html += f"""
-        <div class="rank">
-
-            <span>
-                {i}
-                &nbsp;
-                <b style="color:white">
-                    {x["n"]}
-                </b>
-            </span>
-
-            <b>
-                {x["prob"]:.1f}
-            </b>
+            <div class="note">
+                Cobertura e proteção estatística
+            </div>
 
         </div>
-        """
-
-    if not rows:
-
-        html += (
-            '<div class="line">'
-            'Aguardando dados'
-            '</div>'
-        )
-
-    html += "</div>"
-
-    st.markdown(
-        html,
+        """.format(
+            balls_html(marked)
+        ),
         unsafe_allow_html=True
     )
 
 
 # ============================================================
-# ESTATÍSTICAS
+# RESUMO
 # ============================================================
 
-s1,s2,s3,s4,s5 = st.columns(5)
+st.markdown(
+    '<div class="section">📊 Resumo da análise</div>',
+    unsafe_allow_html=True
+)
 
-stats = [
+
+s1, s2, s3, s4 = st.columns(4)
+
+
+avg_frequency = (
+    len(data) / 37
+    if data
+    else 0
+)
+
+
+max_frequency = (
+    max(counts.values())
+    if counts
+    else 0
+)
+
+
+avg_delay = (
+    mean(delays)
+    if data
+    else 0
+)
+
+
+max_delay = (
+    max(delays)
+    if data
+    else 0
+)
+
+
+avg_z = (
+    mean(
+        [
+            z_score(n, data)
+            for n in NUMBERS
+        ]
+    )
+    if data
+    else 0
+)
+
+
+summary = [
 
     (
-        "📊",
-        "FREQUÊNCIA (200)",
-        f"Média: {len(data)/37:.2f}",
-        f"Máx: {max(freq.values()) if freq else 0}",
+        "FREQUÊNCIA",
+        "Média: {:.2f}".format(
+            avg_frequency
+        ),
+        "Máxima: {}".format(
+            max_frequency
+        ),
         "blue"
     ),
 
     (
-        "◷",
-        "ATRASO MÉDIO",
-        f"Média: {mean(atrasos):.1f}",
-        f"Máx: {max(atrasos)}",
+        "ATRASO",
+        "Média: {:.1f}".format(
+            avg_delay
+        ),
+        "Máximo: {}".format(
+            max_delay
+        ),
         "purple"
     ),
 
     (
-        "Σ",
-        "Z-SCORE MÉDIO",
-        f"Média: {avgz:.2f}",
-        "análise normalizada",
+        "Z-SCORE",
+        "Média: {:.2f}".format(
+            avg_z
+        ),
+        "37 números analisados",
         "green"
     ),
 
     (
-        "🧳",
-        "MAIOR ATRASO",
-        str(max(atrasos)),
-        "entre os 37 números",
+        "BACKTEST",
+        "Acertos: {}".format(
+            hits
+        ),
+        "Testes: {} • {:.1f}%".format(
+            tests,
+            coverage
+        ),
         "orange"
-    ),
-
-    (
-        "⇄",
-        "TRANSIÇÕES",
-        str(max(len(data)-1,0)),
-        "pares observados",
-        "cyan"
     )
 
 ]
 
 
-for col, (
-    ico,
-    titulo,
-    l1,
-    l2,
-    classe
-) in zip(
-    [s1,s2,s3,s4,s5],
-    stats
+for col, item in zip(
+    [s1, s2, s3, s4],
+    summary
 ):
+
+    title, line1, line2, color = item
 
     with col:
 
         st.markdown(
-        
+            """
+            <div class="panel">
+
+                <div class="panel-title">
+                    {}
+                </div>
+
+                <div class="{}"
+                     style="
+                     font-size:19px;
+                     font-weight:800;
+                     ">
+                    {}
+                </div>
+
+                <div style="
+                    color:#91a3af;
+                    font-size:12px;
+                    margin-top:7px;
+                ">
+                    {}
+                </div>
+
+            </div>
+            """.format(
+                title,
+                color,
+                line1,
+                line2
+            ),
+            unsafe_allow_html=True
+        )
+
+
+# ============================================================
+# MATEMÁTICA
+# ============================================================
+
+st.markdown(
+    '<div class="section">🧮 Padrões matemáticos</div>',
+    unsafe_allow_html=True
+)
+
+
+q1, q2, q3 = st.columns(3)
+
+
+with q1:
+
+    st.markdown(
+        """
+        <div class="panel">
+
+            <div class="panel-title">
+                PADRÕES
+            </div>
+
+            <div class="row">
+                <span>Primos</span>
+                <b>{}</b>
+            </div>
+
+            <div class="row">
+                <span>Fibonacci</span>
+                <b>{}</b>
+            </div>
+
+            <div class="row">
+                <span>Quadrados</span>
+                <b>{}</b>
+            </div>
+
+        </div>
+        """.format(
+            sum(x in PRIMES for x in data),
+            sum(x in FIB for x in data),
+            sum(x in SQUARES for x in data)
+        ),
+        unsafe_allow_html=True
+    )
+
+
+with q2:
+
+    st.markdown(
+        """
+        <div class="panel">
+
+            <div class="panel-title">
+                CLASSIFICAÇÕES
+            </div>
+
+            <div class="row">
+                <span>🔴 Vermelhos</span>
+                <b>{}</b>
+            </div>
+
+            <div class="row">
+                <span>⚫ Pretos</span>
+                <b>{}</b>
+            </div>
+
+            <div class="row">
+                <span>🟢 Zeros</span>
+                <b>{}</b>
+            </div>
+
+        </div>
+        """.format(
+            sum(x in RED for x in data),
+            sum(
+                x != 0 and x not in RED
+                for x in data
+            ),
+            data.count(0)
+        ),
+        unsafe_allow_html=True
+    )
+
+
+with q3:
+
+    html = (
+        '<div class="panel">'
+        '<div class="panel-title">'
+        'ÚLTIMAS JANELAS'
+        '</div>'
+    )
+
+    for size in [
+        10,
+        20,
+        37,
+        50,
+        100,
+        150,
+        200
+    ]:
+
+        part = data[-size:]
+
+        va
